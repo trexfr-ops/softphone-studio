@@ -1,8 +1,11 @@
 package com.softphone.studio.ui.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -14,6 +17,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,9 +35,31 @@ fun ActiveCallScreen(viewModel: SoftphoneViewModel) {
     val isMuted by viewModel.isCallMuted.collectAsState()
     val isSpeaker by viewModel.isSpeakerOn.collectAsState()
     val isHold by viewModel.isCallOnHold.collectAsState()
+    val haptic = LocalHapticFeedback.current
 
     val mins = String.format("%02d", elapsed / 60)
     val secs = String.format("%02d", elapsed % 60)
+
+    // Orbital Radar Waves
+    val transition = rememberInfiniteTransition(label = "ActiveCallRadar")
+    val waveScale by transition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 1.55f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "CallRadarWave"
+    )
+    val waveAlpha by transition.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "CallRadarAlpha"
+    )
 
     Column(
         modifier = Modifier
@@ -44,20 +72,51 @@ fun ActiveCallScreen(viewModel: SoftphoneViewModel) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Pulse Avatar
+            // Orbital Pulse Avatar with Radiating Radar Wave
             Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .background(OledSurfaceElevated, CircleShape)
-                    .border(2.dp, EmeraldSuccess, CircleShape),
+                modifier = Modifier.size(150.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.VolumeUp,
-                    contentDescription = null,
-                    tint = TextPrimary,
-                    modifier = Modifier.size(36.dp)
+                // Outermost radar wave
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .graphicsLayer {
+                            scaleX = waveScale
+                            scaleY = waveScale
+                            alpha = waveAlpha
+                        }
+                        .border(1.5.dp, EmeraldSuccess, CircleShape)
                 )
+
+                // Secondary tighter wave
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .graphicsLayer {
+                            val tightScale = 1.0f + (waveScale - 1f) * 0.45f
+                            scaleX = tightScale
+                            scaleY = tightScale
+                            alpha = (waveAlpha * 1.3f).coerceAtMost(0.4f)
+                        }
+                        .background(EmeraldSuccessBg, CircleShape)
+                )
+
+                // Central Avatar Circle
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .background(OledSurfaceElevated, CircleShape)
+                        .border(2.dp, EmeraldSuccess, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VolumeUp,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -71,15 +130,15 @@ fun ActiveCallScreen(viewModel: SoftphoneViewModel) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "SIP TLS Call Active",
+                text = if (isHold) "CALL ON HOLD" else "SIP TLS Call Active • Warsaw Line",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = EmeraldSuccess
+                color = if (isHold) TextSecondary else EmeraldSuccess
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "$mins:$secs",
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
                 color = TextPrimary
@@ -88,7 +147,7 @@ fun ActiveCallScreen(viewModel: SoftphoneViewModel) {
             Spacer(modifier = Modifier.height(14.dp))
 
             WaveformVisualizer(
-                isPlaying = true,
+                isPlaying = !isHold,
                 barCount = 10,
                 activeColor = EmeraldSuccess,
                 modifier = Modifier.width(180.dp)
@@ -110,38 +169,69 @@ fun ActiveCallScreen(viewModel: SoftphoneViewModel) {
                     icon = Icons.Default.Mic,
                     label = "Mute",
                     isActive = isMuted,
-                    onClick = { viewModel.isCallMuted.value = !isMuted }
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.isCallMuted.value = !isMuted
+                    }
                 )
                 CallCircleControl(
                     icon = Icons.Default.VolumeUp,
                     label = "Speaker",
                     isActive = isSpeaker,
-                    onClick = { viewModel.isSpeakerOn.value = !isSpeaker }
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.isSpeakerOn.value = !isSpeaker
+                    }
                 )
                 CallCircleControl(
                     icon = Icons.Default.Pause,
                     label = "Hold",
                     isActive = isHold,
-                    onClick = { viewModel.isCallOnHold.value = !isHold }
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.isCallOnHold.value = !isHold
+                    }
                 )
             }
 
-            // End Call Button
-            Button(
-                onClick = { viewModel.endCall() },
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = DangerRed,
-                    contentColor = TextPrimary
+            // End Call Button with Spring Touch
+            val endInteraction = remember { MutableInteractionSource() }
+            val isEndPressed by endInteraction.collectIsPressedAsState()
+            val endScale by animateFloatAsState(
+                targetValue = if (isEndPressed) 0.88f else 1.0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = 600f
                 ),
-                modifier = Modifier.size(72.dp),
-                contentPadding = PaddingValues(0.dp)
+                label = "EndCallButtonScale"
+            )
+
+            Surface(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    viewModel.endCall()
+                },
+                modifier = Modifier
+                    .size(72.dp)
+                    .graphicsLayer {
+                        scaleX = endScale
+                        scaleY = endScale
+                    },
+                shape = CircleShape,
+                color = DangerRed,
+                interactionSource = endInteraction
             ) {
-                Icon(
-                    imageVector = Icons.Default.CallEnd,
-                    contentDescription = "End Call",
-                    modifier = Modifier.size(32.dp)
-                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CallEnd,
+                        contentDescription = "End Call",
+                        tint = TextPrimary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
             }
         }
     }
@@ -154,21 +244,42 @@ fun CallCircleControl(
     isActive: Boolean,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val buttonScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = 600f
+        ),
+        label = "CallControlScale"
+    )
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
+        Surface(
             modifier = Modifier
                 .size(60.dp)
-                .background(if (isActive) TextPrimary else OledSurfaceElevated, CircleShape)
-                .border(1.dp, OledBorderSubtle, CircleShape)
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center
+                .graphicsLayer {
+                    scaleX = buttonScale
+                    scaleY = buttonScale
+                }
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = onClick
+                ),
+            shape = CircleShape,
+            color = if (isActive) TextPrimary else OledSurfaceElevated,
+            border = androidx.compose.foundation.BorderStroke(1.dp, OledBorderSubtle)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = if (isActive) OledBlack else TextPrimary,
-                modifier = Modifier.size(24.dp)
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = if (isActive) OledBlack else TextPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(text = label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextSecondary)

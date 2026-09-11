@@ -17,6 +17,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softphone.studio.theme.*
@@ -87,6 +89,7 @@ fun MainRoot(viewModel: SoftphoneViewModel) {
     var currentTab by remember { mutableStateOf(NavigationItem.NUMBERS) }
     var isAuthScreenOpen by remember { mutableStateOf(false) }
     val isCallActive by viewModel.isCallActive.collectAsState()
+    val haptic = LocalHapticFeedback.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -101,6 +104,7 @@ fun MainRoot(viewModel: SoftphoneViewModel) {
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 isAuthScreenOpen = false
                                 currentTab = item
                             },
@@ -142,9 +146,14 @@ fun MainRoot(viewModel: SoftphoneViewModel) {
                         AnimatedContent(
                             targetState = currentTab,
                             transitionSpec = {
-                                (fadeIn(animationSpec = tween(240, easing = FastOutSlowInEasing)) +
-                                    scaleIn(initialScale = 0.98f, animationSpec = tween(240, easing = FastOutSlowInEasing)))
-                                    .togetherWith(fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing)))
+                                val direction = if (targetState.ordinal >= initialState.ordinal) 1 else -1
+                                (slideInHorizontally(animationSpec = tween(260, easing = FastOutSlowInEasing)) { (it / 3) * direction } +
+                                    fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                                    scaleIn(initialScale = 0.98f, animationSpec = tween(260, easing = FastOutSlowInEasing)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(180, easing = FastOutLinearInEasing)) { (-it / 3) * direction } +
+                                        fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing))
+                                    )
                             },
                             label = "MainTabTransition"
                         ) { tab ->
