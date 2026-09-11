@@ -146,17 +146,17 @@ fun MonoLuxurySplashScreen(
 
             // Typography Lockup
             Text(
-                text = "SOFTPHONE STUDIO",
-                fontSize = 22.sp,
+                text = "PHANTOMLINE",
+                fontSize = 24.sp,
                 fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 3.sp,
+                letterSpacing = 4.sp,
                 color = TextPrimary
             )
 
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = "2NR CLOUD // VIRTUAL POLAND",
+                text = "BY TREXHAUSTED // DISCORD",
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold,

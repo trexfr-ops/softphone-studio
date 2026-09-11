@@ -71,7 +71,7 @@ fun MessagesScreen(
                     color = TextPrimary
                 )
                 Text(
-                    text = if (authToken != null) "2NR Cloud SMS Gateway Active" else "Local & Cloud Inbox",
+                    text = if (authToken != null) "PhantomLine SMS Gateway Active" else "PhantomLine Inbox",
                     fontSize = 11.sp,
                     color = if (authToken != null) ActiveGreen else TextSecondary
                 )
@@ -147,13 +147,13 @@ fun MessagesScreen(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "2NR Cloud Inactive",
+                            text = "PhantomLine Cloud Standby",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                         Text(
-                            text = "Sign in via Numbers tab to receive real Polish SMS in this inbox.",
+                            text = "Sign in to receive encrypted Polish SMS in this inbox.",
                             fontSize = 11.sp,
                             color = TextSecondary
                         )

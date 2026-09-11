@@ -80,14 +80,14 @@ fun AuthScreen(
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "2NR Cloud Account",
+            text = "PhantomLine Account",
             fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
             color = TextPrimary
         )
         Text(
-            text = "Direct Polish VoIP & Virtual Numbers API",
-            fontSize = 12.sp,
+            text = "Polish Virtual Telecom Gateway // Dev: trexhausted",
+            fontSize = 11.sp,
             color = TextSecondary
         )
 
@@ -109,7 +109,11 @@ fun AuthScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         // Error message banner
-        if (authError != null) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = authError != null,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
+        ) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -129,7 +133,11 @@ fun AuthScreen(
         }
 
         // Success message banner
-        if (authSuccess != null) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = authSuccess != null,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
+        ) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -215,7 +223,7 @@ fun AuthScreen(
             )
         } else {
             TactileButton(
-                text = if (authMode == "signin") "Sign In to 2NR" else "Create 2NR Account",
+                text = if (authMode == "signin") "Sign In to PhantomLine" else "Create PhantomLine Account",
                 onClick = {
                     if (email.isNotBlank() && password.isNotBlank()) {
                         if (authMode == "signin") {
@@ -253,10 +261,10 @@ fun AuthScreen(
             border = BorderStroke(1.dp, OledBorderSubtle)
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
-                Text("2NR Cloud Direct API", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Text("PhantomLine Telecom Gateway", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Credentials are authenticated directly with api.2nr.xyz over TLS encryption. No third-party tracking.",
+                    "Encrypted cloud transport directly linked to Polish virtual mobile pools. Developed by trexhausted (Discord).",
                     fontSize = 11.sp,
                     color = TextSecondary,
                     lineHeight = 15.sp

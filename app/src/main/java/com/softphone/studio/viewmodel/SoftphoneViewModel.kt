@@ -22,12 +22,7 @@ class SoftphoneViewModel : ViewModel() {
     val authSuccessMessage = MutableStateFlow<String?>(null)
 
     // Virtual Numbers State
-    private val _numbers = MutableStateFlow<List<PhoneNumberItem>>(
-        listOf(
-            PhoneNumberItem("1", "+48 732 458 912", "PL", "2NR Cloud Poland", 28),
-            PhoneNumberItem("2", "+48 690 124 551", "PL", "2NR Line 2", 14)
-        )
-    )
+    private val _numbers = MutableStateFlow<List<PhoneNumberItem>>(emptyList())
     val numbers: StateFlow<List<PhoneNumberItem>> = _numbers.asStateFlow()
 
     // Random Number Pending Reservation
@@ -35,43 +30,11 @@ class SoftphoneViewModel : ViewModel() {
     val isNumberLoading = MutableStateFlow(false)
 
     // Messages State
-    private val _messages = MutableStateFlow<List<MessageThread>>(
-        listOf(
-            MessageThread(
-                id = "1",
-                title = "2NR Verification",
-                phoneNumber = "+48 732 000 111",
-                lastMessage = "Your verification code is: 849201. Valid for 10 minutes.",
-                timestamp = "Just now",
-                isUnread = true
-            ),
-            MessageThread(
-                id = "2",
-                title = "Softphone Studio",
-                phoneNumber = "System",
-                lastMessage = "Welcome to Softphone Studio OLED Black Edition.",
-                timestamp = "Yesterday",
-                isUnread = false
-            )
-        )
-    )
+    private val _messages = MutableStateFlow<List<MessageThread>>(emptyList())
     val messages: StateFlow<List<MessageThread>> = _messages.asStateFlow()
 
     // Voicemails State
-    private val _voicemails = MutableStateFlow<List<VoicemailItem>>(
-        listOf(
-            VoicemailItem(
-                id = "1",
-                callerNumber = "+48 22 100 4567",
-                callerTag = "PL",
-                title = "Voicemail: Dispatch Center",
-                durationSeconds = 32,
-                transcript = "Hello, your virtual 2NR softphone registration is active and verified for TLS calling.",
-                isUnread = true,
-                timestamp = "10:14 AM"
-            )
-        )
-    )
+    private val _voicemails = MutableStateFlow<List<VoicemailItem>>(emptyList())
     val voicemails: StateFlow<List<VoicemailItem>> = _voicemails.asStateFlow()
 
     // Voicemail playback state
@@ -81,7 +44,7 @@ class SoftphoneViewModel : ViewModel() {
     private var voicemailJob: Job? = null
 
     // Dialer State
-    val dialerInput = MutableStateFlow("+48 ")
+    val dialerInput = MutableStateFlow("")
 
     // Active Call State
     val isCallActive = MutableStateFlow(false)
@@ -107,7 +70,7 @@ class SoftphoneViewModel : ViewModel() {
                     authToken.value = token
                     userEmail.value = email
                     isAuthLoading.value = false
-                    authSuccessMessage.value = "Connected to 2NR Cloud!"
+                    authSuccessMessage.value = "Connected to PhantomLine Cloud!"
                     fetchUserNumbers()
                     fetchSms()
                     onSuccess()
@@ -145,15 +108,15 @@ class SoftphoneViewModel : ViewModel() {
         userEmail.value = null
         authError.value = null
         authSuccessMessage.value = null
+        _numbers.value = emptyList()
+        _messages.value = emptyList()
     }
 
     fun fetchUserNumbers() {
         val token = authToken.value ?: return
         viewModelScope.launch {
             NrApiClient.getUserNumbers(token).onSuccess { list ->
-                if (list.isNotEmpty()) {
-                    _numbers.value = list
-                }
+                _numbers.value = list
             }
         }
     }
@@ -197,9 +160,7 @@ class SoftphoneViewModel : ViewModel() {
         val token = authToken.value ?: return
         viewModelScope.launch {
             NrApiClient.getSms(token).onSuccess { list ->
-                if (list.isNotEmpty()) {
-                    _messages.value = list
-                }
+                _messages.value = list
             }
         }
     }
@@ -211,12 +172,12 @@ class SoftphoneViewModel : ViewModel() {
 
     fun backspaceDialer() {
         dialerInput.update { current ->
-            if (current.isNotEmpty()) current.dropLast(1) else "+"
+            if (current.isNotEmpty()) current.dropLast(1) else ""
         }
     }
 
     fun clearDialer() {
-        dialerInput.value = "+48 "
+        dialerInput.value = ""
     }
 
     fun startCall(number: String? = null) {

@@ -63,7 +63,7 @@ fun NumbersScreen(
                         color = TextPrimary
                     )
                     Text(
-                        text = if (authToken != null) "2NR Cloud Connected" else "Local & Cloud Softphone",
+                        text = if (authToken != null) "PhantomLine Cloud Connected" else "PhantomLine Virtual Lines",
                         fontSize = 11.sp,
                         color = if (authToken != null) ActiveGreen else TextSecondary
                     )
@@ -125,7 +125,7 @@ fun NumbersScreen(
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Text("2NR Cloud Active", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    Text("PhantomLine Cloud Active", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                                     Text(userEmail ?: "Logged in", fontSize = 11.sp, color = TextSecondary)
                                 }
                             }
@@ -157,8 +157,8 @@ fun NumbersScreen(
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("2NR Cloud Account", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                Text("Tap to sign in or register for live Polish numbers & SMS", fontSize = 11.sp, color = TextSecondary)
+                                Text("PhantomLine Account", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Text("Tap to sign in or register for live Polish numbers & SMS // Dev: trexhausted", fontSize = 11.sp, color = TextSecondary)
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             TactileButton(
@@ -171,14 +171,59 @@ fun NumbersScreen(
                 }
             }
 
-            items(numbers, key = { it.id }) { item ->
-                NumberCard(
-                    item = item,
-                    onCopy = { clipboardManager.setText(AnnotatedString(item.number)) },
-                    onSms = { onNavigateToChat(item.number) },
-                    onCall = { viewModel.startCall(item.number) },
-                    onRenew = { viewModel.renewNumber(item.id) }
-                )
+            if (numbers.isEmpty()) {
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = OledSurface,
+                        border = BorderStroke(1.dp, OledBorderSubtle)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(OledSurfaceElevated, CircleShape)
+                                    .border(1.dp, OledBorderSubtle, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Call, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "No Virtual Numbers Allocated",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (authToken != null)
+                                    "Your PhantomLine pool has no active lines yet. Tap below to reserve a Polish line."
+                                else
+                                    "Sign in to your account or provision a Polish (+48) number.",
+                                fontSize = 11.sp,
+                                color = TextSecondary,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(numbers, key = { it.id }) { item ->
+                    NumberCard(
+                        item = item,
+                        onCopy = { clipboardManager.setText(AnnotatedString(item.number)) },
+                        onSms = { onNavigateToChat(item.number) },
+                        onCall = { viewModel.startCall(item.number) },
+                        onRenew = { viewModel.renewNumber(item.id) }
+                    )
+                }
             }
 
             item {
@@ -339,7 +384,7 @@ fun AddNumberSheetContent(
     onConfirm: (number: String, tag: String, carrier: String) -> Unit
 ) {
     var selectedTag by remember { mutableStateOf("PL") }
-    var carrierName by remember { mutableStateOf("2NR Cloud") }
+    var carrierName by remember { mutableStateOf("PhantomLine Cloud") }
     var previewNumber by remember { mutableStateOf("+48 732 891 042") }
     val authToken by viewModel.authToken.collectAsState()
     val pendingNumber by viewModel.pendingRandomNumber.collectAsState()
@@ -364,14 +409,14 @@ fun AddNumberSheetContent(
             color = TextPrimary
         )
         Text(
-            text = "Select region to provision a virtual Polish 2NR or global line:",
+            text = "Select region to provision a PhantomLine Polish or global line:",
             fontSize = 12.sp,
             color = TextSecondary
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val regions = listOf(
-                Triple("PL", "+48", "2NR Cloud Poland"),
+                Triple("PL", "+48", "PhantomLine Poland"),
                 Triple("UK", "+44", "Vodafone UK"),
                 Triple("US", "+1", "T-Mobile US")
             )
@@ -435,7 +480,7 @@ fun AddNumberSheetContent(
             text = "Reserve & Activate Line",
             onClick = {
                 if (authToken != null && pendingNumber != null) {
-                    viewModel.reservePendingNumber("My 2NR Line") {
+                    viewModel.reservePendingNumber("PhantomLine Line") {
                         onConfirm(previewNumber, selectedTag, carrierName)
                     }
                 } else {

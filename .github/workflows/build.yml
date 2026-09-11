@@ -1,4 +1,4 @@
-name: Build Softphone Studio APK
+name: Build PhantomLine APK
 
 on:
   push:
@@ -36,22 +36,24 @@ jobs:
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SoftphoneStudio-Debug-APK
+          name: PhantomLine-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.2
-          name: "Softphone Studio OLED Black v1.0.2"
+          tag_name: v1.0.3
+          name: "PhantomLine Luxury OLED Black v1.0.3"
           body: |
-            ### Softphone Studio - Luxury OLED Black Edition v1.0.2
-            Official clean Android APK built with Jetpack Compose & Gradle on GitHub Actions.
-            - Brand New Mono Luxury Starting / Splash Animation on app launch with rotating telemetry and pulse waves
-            - Fixed 2NR Cloud session authentication: properly extracts session token from Set-Cookie headers
-            - Fixed 2NR SMS inbox parsing: parses live verification/security codes (Discord, Instagram, Facebook, etc.)
-            - Fixed virtual numbers list parsing from 2NR pool
+            ### PhantomLine - Luxury OLED Black Edition v1.0.3
+            Built with Jetpack Compose & Gradle on GitHub Actions.
+            - Brand Rebrand to PhantomLine (Developer: trexhausted on Discord)
+            - Mono Luxury starting animation on app launch with rotating telemetry and pulse waves
+            - First-time startup Login / Register screen automatically pops up when unauthenticated
+            - Removed all mock/fake items: clean empty states for Numbers, Messages, and Voicemail
+            - Smooth spring animations across dialer keypad, tab transitions (AnimatedContent), and modal dialogs
+            - Direct 2NR Cloud session authentication and real Polish SMS gateway integration
             - Luxury OLED Pitch Black (#000000) theme with zero emojis
           files: app/build/outputs/apk/debug/*.apk
         env:

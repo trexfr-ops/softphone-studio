@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Voicemail
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -80,10 +81,30 @@ fun VoicemailScreen(viewModel: SoftphoneViewModel) {
 
         val displayedList = if (filterUnreadOnly) voicemails.filter { it.isUnread } else voicemails
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
+        if (displayedList.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.Voicemail,
+                        contentDescription = null,
+                        tint = TextTertiary,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("No voicemails", color = TextSecondary, fontSize = 14.sp)
+                    Text("Recorded audio messages will appear here.", color = TextTertiary, fontSize = 11.sp)
+                }
+            }
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
             items(displayedList, key = { it.id }) { item ->
                 val isCurrentlyPlaying = playingId == item.id
 
@@ -255,6 +276,7 @@ fun VoicemailScreen(viewModel: SoftphoneViewModel) {
             }
         }
     }
+}
 }
 
 @Composable

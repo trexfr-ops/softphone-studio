@@ -180,10 +180,63 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 TactileButton(
-                    text = "Manage SIP Account & Credentials",
+                    text = "Manage Account & Cloud Credentials",
                     onClick = onNavigateToAuth,
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+        }
+
+        // CARD 4: DEVELOPER & SERVICE INFO
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            color = OledSurface,
+            border = BorderStroke(1.dp, OledBorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "About Flow nos",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Service", fontSize = 12.sp, color = TextSecondary)
+                    Text("PhantomLine Virtual Telecom", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Developer", fontSize = 12.sp, color = TextSecondary)
+                    Text("trexhausted", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Discord", fontSize = 12.sp, color = TextSecondary)
+                    Text("trexhausted", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ActiveGreen)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Edition", fontSize = 12.sp, color = TextSecondary)
+                    Text("Mono Luxury OLED Black", fontSize = 12.sp, color = TextTertiary)
+                }
             }
         }
     }

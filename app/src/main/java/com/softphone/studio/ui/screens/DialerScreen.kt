@@ -46,11 +46,11 @@ fun DialerScreen(viewModel: SoftphoneViewModel) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = digits,
-                fontSize = 32.sp,
+                text = if (digits.isEmpty()) "Enter Number" else digits,
+                fontSize = if (digits.isEmpty()) 22.sp else 32.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
-                color = TextPrimary,
+                color = if (digits.isEmpty()) TextTertiary else TextPrimary,
                 maxLines = 1
             )
 
@@ -143,13 +143,21 @@ fun DialerKey(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val keyScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else 1f,
+        animationSpec = androidx.compose.animation.core.spring(
+            dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+            stiffness = 500f
+        ),
+        label = "DialerKeyScale"
+    )
 
     Surface(
         modifier = modifier
             .height(68.dp)
             .graphicsLayer {
-                scaleX = if (isPressed) 0.92f else 1f
-                scaleY = if (isPressed) 0.92f else 1f
+                scaleX = keyScale
+                scaleY = keyScale
             }
             .clickable(
                 interactionSource = interactionSource,

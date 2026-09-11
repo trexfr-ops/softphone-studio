@@ -4,7 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -44,12 +47,37 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppRoot(viewModel: SoftphoneViewModel) {
     var isSplashVisible by remember { mutableStateOf(true) }
+    var hasSkippedInitialAuth by remember { mutableStateOf(false) }
+    val authToken by viewModel.authToken.collectAsState()
 
-    Crossfade(targetState = isSplashVisible, label = "MonoLuxurySplashTransition") { showSplash ->
+    Crossfade(
+        targetState = isSplashVisible,
+        animationSpec = tween(400, easing = FastOutSlowInEasing),
+        label = "MonoLuxurySplashTransition"
+    ) { showSplash ->
         if (showSplash) {
             MonoLuxurySplashScreen(onFinish = { isSplashVisible = false })
         } else {
-            MainRoot(viewModel)
+            val needsInitialAuth = (authToken == null && !hasSkippedInitialAuth)
+            AnimatedContent(
+                targetState = needsInitialAuth,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.98f, animationSpec = tween(300, easing = FastOutSlowInEasing)))
+                        .togetherWith(fadeOut(animationSpec = tween(200, easing = FastOutLinearInEasing)))
+                },
+                label = "InitialAuthTransition"
+            ) { showAuth ->
+                if (showAuth) {
+                    AuthScreen(
+                        viewModel = viewModel,
+                        onLoginSuccess = { hasSkippedInitialAuth = true },
+                        onClose = { hasSkippedInitialAuth = true }
+                    )
+                } else {
+                    MainRoot(viewModel = viewModel)
+                }
+            }
         }
     }
 }
@@ -90,16 +118,54 @@ fun MainRoot(viewModel: SoftphoneViewModel) {
                 }
             }
         ) { padding ->
-            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-                if (isAuthScreenOpen) {
-                    AuthScreen(viewModel = viewModel, onLoginSuccess = { isAuthScreenOpen = false }, onClose = { isAuthScreenOpen = false })
-                } else {
-                    when (currentTab) {
-                        NavigationItem.NUMBERS -> NumbersScreen(viewModel, onNavigateToChat = { currentTab = NavigationItem.MESSAGES }, onOpenAuth = { isAuthScreenOpen = true })
-                        NavigationItem.KEYPAD -> DialerScreen(viewModel)
-                        NavigationItem.MESSAGES -> MessagesScreen(viewModel = viewModel, onOpenChat = { /* Detail */ })
-                        NavigationItem.VOICEMAIL -> VoicemailScreen(viewModel)
-                        NavigationItem.SETTINGS -> SettingsScreen(viewModel, onNavigateToAuth = { isAuthScreenOpen = true })
+            Box(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize()
+            ) {
+                AnimatedContent(
+                    targetState = isAuthScreenOpen,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(250, easing = FastOutSlowInEasing)) +
+                            scaleIn(initialScale = 0.98f, animationSpec = tween(250, easing = FastOutSlowInEasing)))
+                            .togetherWith(fadeOut(animationSpec = tween(180, easing = FastOutLinearInEasing)))
+                    },
+                    label = "AuthModalTransition"
+                ) { inAuth ->
+                    if (inAuth) {
+                        AuthScreen(
+                            viewModel = viewModel,
+                            onLoginSuccess = { isAuthScreenOpen = false },
+                            onClose = { isAuthScreenOpen = false }
+                        )
+                    } else {
+                        AnimatedContent(
+                            targetState = currentTab,
+                            transitionSpec = {
+                                (fadeIn(animationSpec = tween(240, easing = FastOutSlowInEasing)) +
+                                    scaleIn(initialScale = 0.98f, animationSpec = tween(240, easing = FastOutSlowInEasing)))
+                                    .togetherWith(fadeOut(animationSpec = tween(160, easing = FastOutLinearInEasing)))
+                            },
+                            label = "MainTabTransition"
+                        ) { tab ->
+                            when (tab) {
+                                NavigationItem.NUMBERS -> NumbersScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToChat = { currentTab = NavigationItem.MESSAGES },
+                                    onOpenAuth = { isAuthScreenOpen = true }
+                                )
+                                NavigationItem.KEYPAD -> DialerScreen(viewModel = viewModel)
+                                NavigationItem.MESSAGES -> MessagesScreen(
+                                    viewModel = viewModel,
+                                    onOpenChat = { /* Detail */ }
+                                )
+                                NavigationItem.VOICEMAIL -> VoicemailScreen(viewModel = viewModel)
+                                NavigationItem.SETTINGS -> SettingsScreen(
+                                    viewModel = viewModel,
+                                    onNavigateToAuth = { isAuthScreenOpen = true }
+                                )
+                            }
+                        }
                     }
                 }
             }
