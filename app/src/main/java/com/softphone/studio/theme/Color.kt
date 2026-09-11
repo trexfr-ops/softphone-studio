@@ -19,6 +19,7 @@ val TextTertiary = Color(0xFF5E5E5E)
 // Status & Semantic Accents (Zero Emoji Design)
 val EmeraldSuccess = Color(0xFF30D158)
 val EmeraldSuccessBg = Color(0x2630D158)
+val ActiveGreen = EmeraldSuccess
 val DangerRed = Color(0xFFFF3B30)
 val DangerRedBg = Color(0x26FF3B30)
 val AccentCyan = Color(0xFF00E5FF)

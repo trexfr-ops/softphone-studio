@@ -102,8 +102,8 @@ fun AuthScreen(
                 .padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            FilterPill("Sign In", selected = authMode == "signin", onClick = { authMode = "signin" }, modifier = Modifier.weight(1f))
-            FilterPill("Register", selected = authMode == "register", onClick = { authMode = "register" }, modifier = Modifier.weight(1f))
+            FilterPill(title = "Sign In", selected = authMode == "signin", onClick = { authMode = "signin" }, modifier = Modifier.weight(1f))
+            FilterPill(title = "Register", selected = authMode == "register", onClick = { authMode = "register" }, modifier = Modifier.weight(1f))
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -266,29 +266,3 @@ fun AuthScreen(
     }
 }
 
-@Composable
-private fun FilterPill(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(10.dp),
-        color = if (selected) OledSurfaceElevated else OledSurface,
-        border = if (selected) BorderStroke(1.dp, OledBorderHighlight) else null
-    ) {
-        Box(
-            modifier = Modifier.padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                fontSize = 12.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) TextPrimary else TextSecondary
-            )
-        }
-    }
-}
