@@ -3,6 +3,7 @@ package com.softphone.studio.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -26,16 +28,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softphone.studio.theme.*
 import com.softphone.studio.ui.components.TactileButton
+import com.softphone.studio.viewmodel.SoftphoneViewModel
 
 @Composable
 fun AuthScreen(
-    onLoginSuccess: () -> Unit
+    viewModel: SoftphoneViewModel,
+    onLoginSuccess: () -> Unit,
+    onClose: () -> Unit = onLoginSuccess
 ) {
     var authMode by remember { mutableStateOf("signin") }
-    var emailOrId by remember { mutableStateOf("developer@sip.local") }
-    var password by remember { mutableStateOf("SuperSecure123!") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
-    var rememberDevice by remember { mutableStateOf(true) }
+
+    val isLoading by viewModel.isAuthLoading.collectAsState()
+    val authError by viewModel.authError.collectAsState()
+    val authSuccess by viewModel.authSuccessMessage.collectAsState()
+    val currentToken by viewModel.authToken.collectAsState()
 
     Column(
         modifier = Modifier
@@ -45,36 +54,46 @@ fun AuthScreen(
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(20.dp))
+        // Top Bar with Close button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = TextSecondary)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Lock Icon Header
         Box(
             modifier = Modifier
-                .size(56.dp)
-                .background(OledSurface, RoundedCornerShape(18.dp))
-                .border(1.dp, OledBorderSubtle, RoundedCornerShape(18.dp)),
+                .size(60.dp)
+                .background(OledSurface, RoundedCornerShape(20.dp))
+                .border(1.dp, OledBorderSubtle, RoundedCornerShape(20.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Lock, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(24.dp))
+            Icon(Icons.Default.Lock, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(28.dp))
         }
 
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "Softphone Account",
-            fontSize = 20.sp,
+            text = "2NR Cloud Account",
+            fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
             color = TextPrimary
         )
         Text(
-            text = "Direct authentication & SIP credentials",
+            text = "Direct Polish VoIP & Virtual Numbers API",
             fontSize = 12.sp,
             color = TextSecondary
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Mode Selector: Sign In / Register / SIP Direct
+        // Mode Selector: Sign In / Register / Status
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -85,172 +104,191 @@ fun AuthScreen(
         ) {
             FilterPill("Sign In", selected = authMode == "signin", onClick = { authMode = "signin" }, modifier = Modifier.weight(1f))
             FilterPill("Register", selected = authMode == "register", onClick = { authMode = "register" }, modifier = Modifier.weight(1f))
-            FilterPill("SIP Direct", selected = authMode == "sip", onClick = { authMode = "sip" }, modifier = Modifier.weight(1f))
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        when (authMode) {
-            "signin" -> {
-                OutlinedTextField(
-                    value = emailOrId,
-                    onValueChange = { emailOrId = it },
-                    label = { Text("Email or Softphone ID") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = OledSurfaceElevated,
-                        unfocusedContainerColor = OledSurface,
-                        focusedBorderColor = OledBorderHighlight,
-                        unfocusedBorderColor = OledBorderSubtle,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                            Icon(
-                                imageVector = if (isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                                tint = TextSecondary
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = OledSurfaceElevated,
-                        unfocusedContainerColor = OledSurface,
-                        focusedBorderColor = OledBorderHighlight,
-                        unfocusedBorderColor = OledBorderSubtle,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Remember this device", fontSize = 12.sp, color = TextSecondary)
-                    Switch(
-                        checked = rememberDevice,
-                        onCheckedChange = { rememberDevice = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = OledBlack,
-                            checkedTrackColor = TextPrimary,
-                            uncheckedThumbColor = TextSecondary,
-                            uncheckedTrackColor = OledSurfaceElevated
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                TactileButton(
-                    text = "Sign In to Softphone",
-                    onClick = onLoginSuccess,
-                    isPrimary = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                TactileButton(
-                    text = "Sign in with One-Time Security Code",
-                    onClick = onLoginSuccess,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            "register" -> {
-                OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    label = { Text("Email Address") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = OledSurfaceElevated,
-                        unfocusedContainerColor = OledSurface,
-                        focusedBorderColor = OledBorderHighlight,
-                        unfocusedBorderColor = OledBorderSubtle
-                    )
-                )
-                Spacer(modifier = Modifier.height(14.dp))
-                OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    label = { Text("Create Password") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = OledSurfaceElevated,
-                        unfocusedContainerColor = OledSurface,
-                        focusedBorderColor = OledBorderHighlight,
-                        unfocusedBorderColor = OledBorderSubtle
-                    )
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-                TactileButton(
-                    text = "Create Softphone Account",
-                    onClick = onLoginSuccess,
-                    isPrimary = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            "sip" -> {
-                OutlinedTextField(
-                    value = "sip.softphone.network:5061",
-                    onValueChange = {},
-                    label = { Text("SIP Registrar Domain") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = "100249",
-                    onValueChange = {},
-                    label = { Text("SIP Extension / User ID") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = "c8f2a1048b6d",
-                    onValueChange = {},
-                    label = { Text("SIP Auth Secret") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-                TactileButton(
-                    text = "Save & Connect SIP Trunk",
-                    onClick = onLoginSuccess,
-                    isPrimary = true,
-                    modifier = Modifier.fillMaxWidth()
+        // Error message banner
+        if (authError != null) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = OledSurface,
+                border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = authError ?: "",
+                    color = DangerRed,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(14.dp),
+                    textAlign = TextAlign.Center
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        // Success message banner
+        if (authSuccess != null) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = OledSurface,
+                border = BorderStroke(1.dp, ActiveGreen.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = authSuccess ?: "",
+                    color = ActiveGreen,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(14.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
 
-        Text(
-            text = "Protected by End-to-End SRTP Voice Encryption.\nNo third-party trackers or external login services.",
-            fontSize = 11.sp,
-            color = TextTertiary,
-            textAlign = TextAlign.Center,
-            lineHeight = 16.sp
+        // Email Field
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email Address") },
+            placeholder = { Text("e.g. user@example.com") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = OledBorderHighlight,
+                unfocusedBorderColor = OledBorderSubtle,
+                focusedLabelColor = TextPrimary,
+                unfocusedLabelColor = TextSecondary,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary,
+                focusedContainerColor = OledSurface,
+                unfocusedContainerColor = OledSurface
+            )
         )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Password Field
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Password") },
+            placeholder = { Text("Min. 6 chars (Upper, Lower, Number)") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true,
+            visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                    Icon(
+                        imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = "Toggle Password Visibility",
+                        tint = TextSecondary
+                    )
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = OledBorderHighlight,
+                unfocusedBorderColor = OledBorderSubtle,
+                focusedLabelColor = TextPrimary,
+                unfocusedLabelColor = TextSecondary,
+                focusedTextColor = TextPrimary,
+                unfocusedTextColor = TextPrimary,
+                focusedContainerColor = OledSurface,
+                unfocusedContainerColor = OledSurface
+            )
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Action Button with Loading Indicator
+        if (isLoading) {
+            CircularProgressIndicator(
+                color = TextPrimary,
+                modifier = Modifier.size(36.dp),
+                strokeWidth = 3.dp
+            )
+        } else {
+            TactileButton(
+                text = if (authMode == "signin") "Sign In to 2NR" else "Create 2NR Account",
+                onClick = {
+                    if (email.isNotBlank() && password.isNotBlank()) {
+                        if (authMode == "signin") {
+                            viewModel.login2nr(email, password, onSuccess = onLoginSuccess)
+                        } else {
+                            viewModel.register2nr(email, password, onSuccess = {
+                                authMode = "signin"
+                            })
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                isPrimary = true
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Skip / Continue Offline
+        TextButton(onClick = onClose) {
+            Text(
+                text = "Continue Without Logging In",
+                color = TextSecondary,
+                fontSize = 12.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Security Notice
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = OledSurfaceElevated,
+            border = BorderStroke(1.dp, OledBorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text("2NR Cloud Direct API", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Credentials are authenticated directly with api.2nr.xyz over TLS encryption. No third-party tracking.",
+                    fontSize = 11.sp,
+                    color = TextSecondary,
+                    lineHeight = 15.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterPill(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(10.dp),
+        color = if (selected) OledSurfaceElevated else OledSurface,
+        border = if (selected) BorderStroke(1.dp, OledBorderHighlight) else null
+    ) {
+        Box(
+            modifier = Modifier.padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) TextPrimary else TextSecondary
+            )
+        }
     }
 }

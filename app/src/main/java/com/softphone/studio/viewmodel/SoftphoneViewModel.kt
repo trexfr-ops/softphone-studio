@@ -3,6 +3,7 @@ package com.softphone.studio.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.softphone.studio.model.*
+import com.softphone.studio.network.NrApiClient
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,15 +14,48 @@ import kotlinx.coroutines.launch
 
 class SoftphoneViewModel : ViewModel() {
 
+    // 2NR Cloud Account State
+    val authToken = MutableStateFlow<String?>(null)
+    val userEmail = MutableStateFlow<String?>(null)
+    val isAuthLoading = MutableStateFlow(false)
+    val authError = MutableStateFlow<String?>(null)
+    val authSuccessMessage = MutableStateFlow<String?>(null)
+
     // Virtual Numbers State
     private val _numbers = MutableStateFlow<List<PhoneNumberItem>>(
         listOf(
-            PhoneNumberItem("1", "+48 732 458 912", "PL", "Play SIP Trunk", 28),
-            PhoneNumberItem("2", "+48 690 124 551", "PL", "Orange Poland", 14),
-            PhoneNumberItem("3", "+44 770 982 110", "UK", "Vodafone Direct", 30)
+            PhoneNumberItem("1", "+48 732 458 912", "PL", "2NR Cloud Poland", 28),
+            PhoneNumberItem("2", "+48 690 124 551", "PL", "2NR Line 2", 14)
         )
     )
     val numbers: StateFlow<List<PhoneNumberItem>> = _numbers.asStateFlow()
+
+    // Random Number Pending Reservation
+    val pendingRandomNumber = MutableStateFlow<Pair<String, Int>?>(null)
+    val isNumberLoading = MutableStateFlow(false)
+
+    // Messages State
+    private val _messages = MutableStateFlow<List<MessageThread>>(
+        listOf(
+            MessageThread(
+                id = "1",
+                title = "2NR Verification",
+                phoneNumber = "+48 732 000 111",
+                lastMessage = "Your verification code is: 849201. Valid for 10 minutes.",
+                timestamp = "Just now",
+                isUnread = true
+            ),
+            MessageThread(
+                id = "2",
+                title = "Softphone Studio",
+                phoneNumber = "System",
+                lastMessage = "Welcome to Softphone Studio OLED Black Edition.",
+                timestamp = "Yesterday",
+                isUnread = false
+            )
+        )
+    )
+    val messages: StateFlow<List<MessageThread>> = _messages.asStateFlow()
 
     // Voicemails State
     private val _voicemails = MutableStateFlow<List<VoicemailItem>>(
@@ -32,19 +66,9 @@ class SoftphoneViewModel : ViewModel() {
                 callerTag = "PL",
                 title = "Voicemail: Dispatch Center",
                 durationSeconds = 32,
-                transcript = "Hello, we confirmed your virtual SIP softphone registration. Your line is active and verified for TLS calling.",
+                transcript = "Hello, your virtual 2NR softphone registration is active and verified for TLS calling.",
                 isUnread = true,
                 timestamp = "10:14 AM"
-            ),
-            VoicemailItem(
-                id = "2",
-                callerNumber = "+44 20 7946 0919",
-                callerTag = "UK",
-                title = "Voicemail: Tech Support",
-                durationSeconds = 18,
-                transcript = "System check completed. Jitter buffer calibrated to 40ms.",
-                isUnread = false,
-                timestamp = "Yesterday"
             )
         )
     )
@@ -70,6 +94,115 @@ class SoftphoneViewModel : ViewModel() {
 
     // Audio & SIP Settings State
     val settingsState = MutableStateFlow(AudioSettingsState())
+
+    // 2NR Cloud Authentication
+    fun login2nr(email: String, pass: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            isAuthLoading.value = true
+            authError.value = null
+            authSuccessMessage.value = null
+
+            NrApiClient.login(email, pass).fold(
+                onSuccess = { token ->
+                    authToken.value = token
+                    userEmail.value = email
+                    isAuthLoading.value = false
+                    authSuccessMessage.value = "Connected to 2NR Cloud!"
+                    fetchUserNumbers()
+                    fetchSms()
+                    onSuccess()
+                },
+                onFailure = { err ->
+                    isAuthLoading.value = false
+                    authError.value = err.message ?: "Authentication failed"
+                }
+            )
+        }
+    }
+
+    fun register2nr(email: String, pass: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            isAuthLoading.value = true
+            authError.value = null
+            authSuccessMessage.value = null
+
+            NrApiClient.register(email, pass).fold(
+                onSuccess = {
+                    isAuthLoading.value = false
+                    authSuccessMessage.value = "Registration successful! Please check your email to activate."
+                    onSuccess()
+                },
+                onFailure = { err ->
+                    isAuthLoading.value = false
+                    authError.value = err.message ?: "Registration failed"
+                }
+            )
+        }
+    }
+
+    fun logout2nr() {
+        authToken.value = null
+        userEmail.value = null
+        authError.value = null
+        authSuccessMessage.value = null
+    }
+
+    fun fetchUserNumbers() {
+        val token = authToken.value ?: return
+        viewModelScope.launch {
+            NrApiClient.getUserNumbers(token).onSuccess { list ->
+                if (list.isNotEmpty()) {
+                    _numbers.value = list
+                }
+            }
+        }
+    }
+
+    fun fetchRandomNumber() {
+        val token = authToken.value ?: return
+        viewModelScope.launch {
+            isNumberLoading.value = true
+            NrApiClient.getRandomNumber(token).fold(
+                onSuccess = { pair ->
+                    isNumberLoading.value = false
+                    pendingRandomNumber.value = pair
+                },
+                onFailure = {
+                    isNumberLoading.value = false
+                }
+            )
+        }
+    }
+
+    fun reservePendingNumber(name: String, onComplete: () -> Unit) {
+        val token = authToken.value ?: return
+        val pair = pendingRandomNumber.value ?: return
+        viewModelScope.launch {
+            isNumberLoading.value = true
+            NrApiClient.reserveNumber(token, pair.second, name).fold(
+                onSuccess = {
+                    isNumberLoading.value = false
+                    pendingRandomNumber.value = null
+                    fetchUserNumbers()
+                    onComplete()
+                },
+                onFailure = {
+                    isNumberLoading.value = false
+                }
+            )
+        }
+    }
+
+    fun fetchSms() {
+        val token = authToken.value ?: return
+        viewModelScope.launch {
+            NrApiClient.getSms(token).onSuccess { list ->
+                if (list.isNotEmpty()) {
+                    _messages.value = list
+                }
+            }
+        }
+    }
 
     // Actions
     fun pressDialerKey(key: String) {

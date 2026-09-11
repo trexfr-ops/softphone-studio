@@ -78,12 +78,12 @@ fun MainRoot(viewModel: SoftphoneViewModel) {
         ) { padding ->
             Box(modifier = Modifier.padding(padding).fillMaxSize()) {
                 if (isAuthScreenOpen) {
-                    AuthScreen(onLoginSuccess = { isAuthScreenOpen = false })
+                    AuthScreen(viewModel = viewModel, onLoginSuccess = { isAuthScreenOpen = false }, onClose = { isAuthScreenOpen = false })
                 } else {
                     when (currentTab) {
-                        NavigationItem.NUMBERS -> NumbersScreen(viewModel, onNavigateToChat = { currentTab = NavigationItem.MESSAGES })
+                        NavigationItem.NUMBERS -> NumbersScreen(viewModel, onNavigateToChat = { currentTab = NavigationItem.MESSAGES }, onOpenAuth = { isAuthScreenOpen = true })
                         NavigationItem.KEYPAD -> DialerScreen(viewModel)
-                        NavigationItem.MESSAGES -> MessagesScreen(onOpenChat = { /* Detail */ })
+                        NavigationItem.MESSAGES -> MessagesScreen(viewModel = viewModel, onOpenChat = { /* Detail */ })
                         NavigationItem.VOICEMAIL -> VoicemailScreen(viewModel)
                         NavigationItem.SETTINGS -> SettingsScreen(viewModel, onNavigateToAuth = { isAuthScreenOpen = true })
                     }

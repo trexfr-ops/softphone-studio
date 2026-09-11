@@ -3,6 +3,7 @@ package com.softphone.studio.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,13 +12,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,9 +36,13 @@ import com.softphone.studio.viewmodel.SoftphoneViewModel
 @Composable
 fun NumbersScreen(
     viewModel: SoftphoneViewModel,
-    onNavigateToChat: (String) -> Unit
+    onNavigateToChat: (String) -> Unit,
+    onOpenAuth: () -> Unit = {}
 ) {
     val numbers by viewModel.numbers.collectAsState()
+    val authToken by viewModel.authToken.collectAsState()
+    val userEmail by viewModel.userEmail.collectAsState()
+    val clipboardManager = LocalClipboardManager.current
     var showAddModal by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -46,25 +55,42 @@ fun NumbersScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "My Numbers",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = TextPrimary
-                )
-                IconButton(
-                    onClick = { showAddModal = true },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(OledSurfaceElevated, CircleShape)
-                        .border(1.dp, OledBorderSubtle, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add Number",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(18.dp)
+                Column {
+                    Text(
+                        text = "My Numbers",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextPrimary
                     )
+                    Text(
+                        text = if (authToken != null) "2NR Cloud Connected" else "Local & Cloud Softphone",
+                        fontSize = 11.sp,
+                        color = if (authToken != null) ActiveGreen else TextSecondary
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (authToken != null) {
+                        IconButton(
+                            onClick = { viewModel.fetchUserNumbers() },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(OledSurface, CircleShape)
+                                .border(1.dp, OledBorderSubtle, CircleShape)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh Numbers", tint = TextPrimary, modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    IconButton(
+                        onClick = { showAddModal = true },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(OledSurfaceElevated, CircleShape)
+                            .border(1.dp, OledBorderSubtle, CircleShape)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Number", tint = TextPrimary, modifier = Modifier.size(18.dp))
+                    }
                 }
             }
         }
@@ -73,13 +99,82 @@ fun NumbersScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
+            // 2NR Cloud Status / Login Banner
+            item {
+                if (authToken != null) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = OledSurface,
+                        border = BorderStroke(1.dp, ActiveGreen.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(ActiveGreen, CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("2NR Cloud Active", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    Text(userEmail ?: "Logged in", fontSize = 11.sp, color = TextSecondary)
+                                }
+                            }
+                            TextButton(onClick = { viewModel.logout2nr() }) {
+                                Text("Log Out", fontSize = 11.sp, color = DangerRed)
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenAuth() },
+                        shape = RoundedCornerShape(14.dp),
+                        color = OledSurface,
+                        border = BorderStroke(1.dp, OledBorderMedium)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(OledSurfaceElevated, RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("2NR Cloud Account", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Text("Tap to sign in or register for live Polish numbers & SMS", fontSize = 11.sp, color = TextSecondary)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TactileButton(
+                                text = "Sign In",
+                                onClick = onOpenAuth,
+                                isPrimary = true
+                            )
+                        }
+                    }
+                }
+            }
+
             items(numbers, key = { it.id }) { item ->
                 NumberCard(
                     item = item,
-                    onCopy = { /* Copy to clipboard */ },
+                    onCopy = { clipboardManager.setText(AnnotatedString(item.number)) },
                     onSms = { onNavigateToChat(item.number) },
                     onCall = { viewModel.startCall(item.number) },
                     onRenew = { viewModel.renewNumber(item.id) }
@@ -113,6 +208,7 @@ fun NumbersScreen(
                 scrimColor = OledBlack.copy(alpha = 0.7f)
             ) {
                 AddNumberSheetContent(
+                    viewModel = viewModel,
                     onConfirm = { number, tag, carrier ->
                         viewModel.addVirtualNumber(number, tag, carrier)
                         showAddModal = false
@@ -156,113 +252,81 @@ fun NumberCard(
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Monospace,
-                        color = OledBlack,
-                        modifier = Modifier
-                            .background(TextPrimary, RoundedCornerShape(3.dp))
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                        color = TextPrimary
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = item.carrierName,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
                         color = TextSecondary
                     )
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .background(EmeraldSuccessBg, CircleShape)
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(6.dp)
-                            .background(EmeraldSuccess, CircleShape)
+                            .size(7.dp)
+                            .background(ActiveGreen, CircleShape)
                     )
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Active",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = EmeraldSuccess
+                        text = "${item.daysRemaining} days left",
+                        fontSize = 11.sp,
+                        color = TextSecondary
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Big Phone Number
+            // Phone Number Text (Monospace & prominent)
             Text(
                 text = item.number,
-                fontSize = 21.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 fontFamily = FontFamily.Monospace,
-                color = TextPrimary
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Validity Progress Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Expires in ${item.daysRemaining} days",
-                    fontSize = 11.sp,
-                    color = TextSecondary
-                )
-                Text(
-                    text = "${(item.progressPercentage * 100).toInt()}%",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    color = TextSecondary
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            LinearProgressIndicator(
-                progress = { item.progressPercentage },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(5.dp),
                 color = TextPrimary,
-                trackColor = OledSurfaceElevated
+                letterSpacing = 1.sp
             )
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Action Buttons Grid
+            // Quick Actions: Copy, SMS, Call, Renew
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                TactileButton(
-                    text = "Copy",
+                OutlinedButton(
                     onClick = onCopy,
                     modifier = Modifier.weight(1f),
-                    leadingIcon = { Icon(Icons.Default.ContentCopy, null, Modifier.size(13.dp)) }
-                )
-                TactileButton(
-                    text = if (item.daysRemaining <= 15) "Renew" else "SMS",
-                    onClick = if (item.daysRemaining <= 15) onRenew else onSms,
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, OledBorderSubtle),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Copy", fontSize = 11.sp)
+                }
+
+                OutlinedButton(
+                    onClick = onSms,
                     modifier = Modifier.weight(1f),
-                    leadingIcon = {
-                        Icon(
-                            if (item.daysRemaining <= 15) Icons.Default.Refresh else Icons.Default.Email,
-                            null,
-                            Modifier.size(13.dp)
-                        )
-                    }
-                )
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, OledBorderSubtle),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.Email, contentDescription = "SMS", modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("SMS", fontSize = 11.sp)
+                }
+
                 TactileButton(
                     text = "Call",
                     onClick = onCall,
                     isPrimary = true,
-                    modifier = Modifier.weight(1f),
-                    leadingIcon = { Icon(Icons.Default.Call, null, Modifier.size(13.dp)) }
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -271,11 +335,21 @@ fun NumberCard(
 
 @Composable
 fun AddNumberSheetContent(
-    onConfirm: (String, String, String) -> Unit
+    viewModel: SoftphoneViewModel,
+    onConfirm: (number: String, tag: String, carrier: String) -> Unit
 ) {
     var selectedTag by remember { mutableStateOf("PL") }
-    var previewNumber by remember { mutableStateOf("+48 732 998 104") }
-    var carrierName by remember { mutableStateOf("Play Poland") }
+    var carrierName by remember { mutableStateOf("2NR Cloud") }
+    var previewNumber by remember { mutableStateOf("+48 732 891 042") }
+    val authToken by viewModel.authToken.collectAsState()
+    val pendingNumber by viewModel.pendingRandomNumber.collectAsState()
+    val isLoading by viewModel.isNumberLoading.collectAsState()
+
+    LaunchedEffect(pendingNumber) {
+        pendingNumber?.let {
+            previewNumber = it.first
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -290,14 +364,14 @@ fun AddNumberSheetContent(
             color = TextPrimary
         )
         Text(
-            text = "Select region to provision an encrypted virtual SIP line:",
+            text = "Select region to provision a virtual Polish 2NR or global line:",
             fontSize = 12.sp,
             color = TextSecondary
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val regions = listOf(
-                Triple("PL", "+48", "Play Poland"),
+                Triple("PL", "+48", "2NR Cloud Poland"),
                 Triple("UK", "+44", "Vodafone UK"),
                 Triple("US", "+1", "T-Mobile US")
             )
@@ -307,7 +381,11 @@ fun AddNumberSheetContent(
                     onClick = {
                         selectedTag = tag
                         carrierName = carrier
-                        previewNumber = "$code 7${(100..999).random()} ${(100..999).random()}"
+                        if (tag == "PL" && authToken != null) {
+                            viewModel.fetchRandomNumber()
+                        } else {
+                            previewNumber = "$code 7${(100..999).random()} ${(100..999).random()}"
+                        }
                     },
                     label = { Text("[$tag] $carrier") },
                     colors = FilterChipDefaults.filterChipColors(
@@ -332,18 +410,22 @@ fun AddNumberSheetContent(
             ) {
                 Text("Allocated Line Preview", fontSize = 11.sp, color = TextSecondary)
                 Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = previewNumber,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontFamily = FontFamily.Monospace,
-                    color = TextPrimary
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(color = TextPrimary, modifier = Modifier.size(24.dp))
+                } else {
+                    Text(
+                        text = previewNumber,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontFamily = FontFamily.Monospace,
+                        color = TextPrimary
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Direct SIP Provisioned • Immediate Activation",
+                    text = "Direct Provisioned • Immediate Activation",
                     fontSize = 11.sp,
-                    color = EmeraldSuccess,
+                    color = ActiveGreen,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -351,7 +433,15 @@ fun AddNumberSheetContent(
 
         TactileButton(
             text = "Reserve & Activate Line",
-            onClick = { onConfirm(previewNumber, selectedTag, carrierName) },
+            onClick = {
+                if (authToken != null && pendingNumber != null) {
+                    viewModel.reservePendingNumber("My 2NR Line") {
+                        onConfirm(previewNumber, selectedTag, carrierName)
+                    }
+                } else {
+                    onConfirm(previewNumber, selectedTag, carrierName)
+                }
+            },
             isPrimary = true,
             modifier = Modifier.fillMaxWidth()
         )
