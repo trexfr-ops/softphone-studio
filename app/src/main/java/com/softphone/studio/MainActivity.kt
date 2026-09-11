@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -34,8 +35,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             SoftphoneStudioTheme {
-                MainRoot(viewModel)
+                AppRoot(viewModel)
             }
+        }
+    }
+}
+
+@Composable
+fun AppRoot(viewModel: SoftphoneViewModel) {
+    var isSplashVisible by remember { mutableStateOf(true) }
+
+    Crossfade(targetState = isSplashVisible, label = "MonoLuxurySplashTransition") { showSplash ->
+        if (showSplash) {
+            MonoLuxurySplashScreen(onFinish = { isSplashVisible = false })
+        } else {
+            MainRoot(viewModel)
         }
     }
 }

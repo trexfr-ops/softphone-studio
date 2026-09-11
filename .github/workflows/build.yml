@@ -43,18 +43,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.1
-          name: "Softphone Studio OLED Black v1.0.1"
+          tag_name: v1.0.2
+          name: "Softphone Studio OLED Black v1.0.2"
           body: |
-            ### Softphone Studio - Luxury OLED Black Edition v1.0.1
+            ### Softphone Studio - Luxury OLED Black Edition v1.0.2
             Official clean Android APK built with Jetpack Compose & Gradle on GitHub Actions.
-            - Real 2NR Cloud backend integration (api.2nr.xyz)
-            - Native Sign In and Account Registration screen (Zero Google Play Integrity dependency)
-            - Polish virtual numbers live provisioning and listing (+48)
-            - Live SMS inbox with automatic OTP code extraction and 1-tap clipboard copying
+            - Brand New Mono Luxury Starting / Splash Animation on app launch with rotating telemetry and pulse waves
+            - Fixed 2NR Cloud session authentication: properly extracts session token from Set-Cookie headers
+            - Fixed 2NR SMS inbox parsing: parses live verification/security codes (Discord, Instagram, Facebook, etc.)
+            - Fixed virtual numbers list parsing from 2NR pool
             - Luxury OLED Pitch Black (#000000) theme with zero emojis
-            - Tactile keypad with Web Audio synthesis and haptics
-            - Voicemail manager with scrubbable waveform visualizer
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

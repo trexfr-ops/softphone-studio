@@ -12,11 +12,17 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class HttpResult(
+    val statusCode: Int,
+    val body: String,
+    val cookies: List<String>
+)
+
 object NrApiClient {
     private const val BASE_URL = "https://api.2nr.xyz"
     private const val APP_VERSION = "52"
 
-    private fun postJson(endpoint: String, payload: JSONObject, token: String? = null): String {
+    private fun postJson(endpoint: String, payload: JSONObject, token: String? = null): HttpResult {
         val url = URL("$BASE_URL/$endpoint")
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
@@ -42,13 +48,19 @@ object NrApiClient {
             ?: throw Exception("HTTP $code with no body")
 
         val responseText = BufferedReader(InputStreamReader(stream, "UTF-8")).use { it.readText() }
+
+        // Extract Set-Cookie headers
+        val cookies = conn.headerFields.entries
+            .filter { it.key != null && it.key.equals("Set-Cookie", ignoreCase = true) }
+            .flatMap { it.value }
+
         if (code !in 200..299) {
             val errorObj = try { JSONObject(responseText) } catch (e: Exception) { null }
             val errorMsg = errorObj?.optString("error") ?: errorObj?.optString("reason") ?: "HTTP $code"
             throw Exception(errorMsg)
         }
 
-        return responseText
+        return HttpResult(code, responseText, cookies)
     }
 
     suspend fun login(email: String, pass: String): Result<String> = withContext(Dispatchers.IO) {
@@ -62,13 +74,28 @@ object NrApiClient {
                     put("language", "en")
                 })
             }
-            val response = postJson("auth/login", payload)
-            val json = JSONObject(response)
-            val token = json.optString("token")
-            if (token.isNotEmpty()) {
-                Result.success(token)
+            val httpResult = postJson("auth/login", payload)
+
+            // 1. Extract token from Set-Cookie header (2NR primary auth transport)
+            var extractedToken: String? = null
+            for (cookie in httpResult.cookies) {
+                val matcher = Regex("""token=([^;]+)""").find(cookie)
+                if (matcher != null) {
+                    extractedToken = matcher.groupValues[1]
+                    break
+                }
+            }
+
+            // 2. Fallback: check JSON body
+            if (extractedToken.isNullOrEmpty()) {
+                val json = try { JSONObject(httpResult.body) } catch (e: Exception) { null }
+                extractedToken = json?.optString("token")
+            }
+
+            if (!extractedToken.isNullOrEmpty()) {
+                Result.success(extractedToken)
             } else {
-                Result.failure(Exception("Login succeeded but no token received."))
+                Result.failure(Exception("Login succeeded but no session token received in response."))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -85,12 +112,12 @@ object NrApiClient {
                     put("imei", "358249051111111")
                 })
             }
-            val response = postJson("auth/register", payload)
-            val json = JSONObject(response)
+            val httpResult = postJson("auth/register", payload)
+            val json = JSONObject(httpResult.body)
             if (json.optBoolean("success", false)) {
                 Result.success(true)
             } else {
-                Result.failure(Exception("Registration failed: $response"))
+                Result.failure(Exception("Registration failed: ${httpResult.body}"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -102,16 +129,26 @@ object NrApiClient {
             val payload = JSONObject().apply {
                 put("id", 302)
             }
-            val response = postJson("numbers/getUserNumbers", payload, token)
-            val jsonArray = JSONArray(response)
+            val httpResult = postJson("numbers/getUserNumbers", payload, token)
+            val jsonArray = try {
+                JSONArray(httpResult.body)
+            } catch (e: Exception) {
+                JSONObject(httpResult.body).optJSONArray("result") ?: JSONArray()
+            }
             val list = mutableListOf<PhoneNumberItem>()
             for (i in 0 until jsonArray.length()) {
                 val item = jsonArray.getJSONObject(i)
-                val id = item.optString("id", i.toString())
+                val id = item.optString("number_id", item.optString("id", i.toString()))
                 val rawNumber = item.optString("number")
-                val formatted = if (rawNumber.startsWith("+")) rawNumber else "+48 $rawNumber"
+                val formatted = if (rawNumber.startsWith("+")) {
+                    rawNumber
+                } else if (rawNumber.startsWith("48")) {
+                    "+$rawNumber"
+                } else {
+                    "+48 $rawNumber"
+                }
                 val name = item.optString("name", "2NR Line ${i + 1}")
-                val daysLeft = item.optInt("days_to_expire", 7)
+                val daysLeft = item.optInt("days_to_expire", 3)
                 list.add(PhoneNumberItem(id, formatted, "PL", name, daysLeft))
             }
             Result.success(list)
@@ -125,13 +162,23 @@ object NrApiClient {
             val payload = JSONObject().apply {
                 put("id", 300)
             }
-            val response = postJson("numbers/getRandomNumber", payload, token)
-            val jsonArray = JSONArray(response)
+            val httpResult = postJson("numbers/getRandomNumber", payload, token)
+            val jsonArray = try {
+                JSONArray(httpResult.body)
+            } catch (e: Exception) {
+                JSONObject(httpResult.body).optJSONArray("result") ?: JSONArray()
+            }
             if (jsonArray.length() > 0) {
                 val first = jsonArray.getJSONObject(0)
                 val rawNumber = first.optString("number")
                 val numberId = first.optInt("id")
-                val formatted = if (rawNumber.startsWith("+")) rawNumber else "+48 $rawNumber"
+                val formatted = if (rawNumber.startsWith("+")) {
+                    rawNumber
+                } else if (rawNumber.startsWith("48")) {
+                    "+$rawNumber"
+                } else {
+                    "+48 $rawNumber"
+                }
                 Result.success(Pair(formatted, numberId))
             } else {
                 Result.failure(Exception("No numbers currently available from 2NR pool."))
@@ -152,8 +199,8 @@ object NrApiClient {
                     put("marketing", false)
                 })
             }
-            val response = postJson("numbers/reserveNumber", payload, token)
-            val json = JSONObject(response)
+            val httpResult = postJson("numbers/reserveNumber", payload, token)
+            val json = JSONObject(httpResult.body)
             if (json.optBoolean("success", true)) {
                 Result.success(true)
             } else {
@@ -169,23 +216,33 @@ object NrApiClient {
             val payload = JSONObject().apply {
                 put("id", 400)
             }
-            val response = postJson("sms/get", payload, token)
-            val jsonArray = JSONArray(response)
+            val httpResult = postJson("sms/get", payload, token)
+            val jsonArray = try {
+                JSONObject(httpResult.body).optJSONArray("result") ?: JSONArray(httpResult.body)
+            } catch (e: Exception) {
+                JSONArray(httpResult.body)
+            }
             val threads = mutableListOf<MessageThread>()
             for (i in 0 until jsonArray.length()) {
                 val item = jsonArray.getJSONObject(i)
                 val id = item.optString("id", i.toString())
-                val sender = item.optString("sender", "2NR Service")
-                val text = item.optString("text", "")
-                val time = item.optString("created_at", "Just now")
+                val sender = item.optString("phone", item.optString("sender", "2NR Service"))
+                val text = item.optString("body", item.optString("text", ""))
+                val timeRaw = item.optString("created_at", "Just now")
+                val formattedTime = if (timeRaw.contains("T")) {
+                    timeRaw.substringBefore("T")
+                } else {
+                    timeRaw
+                }
+                val isUnread = item.optInt("status", 0) == 0
                 threads.add(
                     MessageThread(
                         id = id,
                         title = sender,
                         phoneNumber = sender,
                         lastMessage = text,
-                        timestamp = time,
-                        isUnread = item.optBoolean("unread", false)
+                        timestamp = formattedTime,
+                        isUnread = isUnread
                     )
                 )
             }
