@@ -1,5 +1,6 @@
 package com.softphone.studio.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -20,12 +21,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.softphone.studio.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -33,7 +36,15 @@ import kotlin.math.sin
 fun MonoLuxurySplashScreen(
     onFinish: () -> Unit
 ) {
-    var animationProgress by remember { mutableStateOf(0f) }
+    // 1. Wireframe Drawing Animation (Web Anime.js intro style)
+    val wireframeDraw = remember { Animatable(0f) }
+
+    // 2. Centerpiece Elastic Pop (Web Elastic easing style)
+    val centerpieceScale = remember { Animatable(0.68f) }
+    val centerpieceAlpha = remember { Animatable(0f) }
+
+    // 3. Smooth Continuous Loading Progress
+    val smoothLoadingProgress = remember { Animatable(0f) }
     var statusText by remember { mutableStateOf("INITIALIZING ENCRYPTED TLS SESSION...") }
 
     val infiniteTransition = rememberInfiniteTransition(label = "MonoLuxuryInfinite")
@@ -82,28 +93,79 @@ fun MonoLuxurySplashScreen(
         label = "WavePulse"
     )
 
-    // Intro Scale & Fade Transitions
+    // Global Intro Scale & Fade Transitions
     val introScale by animateFloatAsState(
-        targetValue = if (animationProgress > 0.1f) 1f else 0.82f,
+        targetValue = if (wireframeDraw.value > 0.05f) 1f else 0.84f,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessLow),
         label = "IntroScale"
     )
     val introAlpha by animateFloatAsState(
-        targetValue = if (animationProgress > 0.1f) 1f else 0f,
-        animationSpec = tween(900, easing = FastOutSlowInEasing),
+        targetValue = if (wireframeDraw.value > 0.05f) 1f else 0f,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
         label = "IntroAlpha"
     )
 
+    // Typography animated entry
+    val typoAlpha by animateFloatAsState(
+        targetValue = if (wireframeDraw.value > 0.35f) 1f else 0f,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        label = "TypoAlpha"
+    )
+    val typoScale by animateFloatAsState(
+        targetValue = if (wireframeDraw.value > 0.35f) 1f else 0.94f,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = Spring.StiffnessLow),
+        label = "TypoScale"
+    )
+
     LaunchedEffect(Unit) {
+        // Wireframe Line Drawing Intro
+        launch {
+            wireframeDraw.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing)
+            )
+        }
+
+        // Centerpiece Handset Elastic Spring Pop
+        launch {
+            delay(300)
+            launch {
+                centerpieceScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                )
+            }
+            launch {
+                centerpieceAlpha.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
+                )
+            }
+        }
+
+        // Continuous Butter-Smooth Loading Progression
         delay(100)
-        animationProgress = 0.25f
-        delay(600)
+        smoothLoadingProgress.animateTo(
+            targetValue = 0.35f,
+            animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing)
+        )
+
         statusText = "VERIFYING WARSAW VOIP NODE [+48]..."
-        animationProgress = 0.65f
-        delay(700)
+        smoothLoadingProgress.animateTo(
+            targetValue = 0.75f,
+            animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
+        )
+
         statusText = "AUTHENTICATED // READY"
-        animationProgress = 1.0f
-        delay(700)
+        smoothLoadingProgress.animateTo(
+            targetValue = 1.0f,
+            animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing)
+        )
+
+        delay(400)
         onFinish()
     }
 
@@ -137,38 +199,48 @@ fun MonoLuxurySplashScreen(
                         radarAngle = radarAngle,
                         photonAngle = photonAngle,
                         auraAlpha = auraAlpha,
-                        wavePulse = wavePulse
+                        wavePulse = wavePulse,
+                        wireframeProgress = wireframeDraw.value,
+                        centerpieceScale = centerpieceScale.value,
+                        centerpieceAlpha = centerpieceAlpha.value
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Typography Lockup
-            Text(
-                text = "PHANTOMLINE",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = 4.sp,
-                color = TextPrimary
-            )
+            // Typography Lockup with Smooth Animated Reveal
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .scale(typoScale)
+                    .alpha(typoAlpha)
+            ) {
+                Text(
+                    text = "PHANTOMLINE",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 4.sp,
+                    color = TextPrimary
+                )
 
-            Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-            Text(
-                text = "BY TREXHAUSTED // DISCORD",
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                color = TextSecondary
-            )
+                Text(
+                    text = "BY TREXHAUSTED // DISCORD",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp,
+                    color = TextSecondary
+                )
+            }
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Progress Indicator
+            // Smooth Continuous Progress Indicator
             LinearProgressIndicator(
-                progress = { animationProgress },
+                progress = { smoothLoadingProgress.value },
                 modifier = Modifier
                     .width(180.dp)
                     .height(2.dp),
@@ -178,14 +250,28 @@ fun MonoLuxurySplashScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = statusText,
-                fontSize = 9.5.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.sp,
-                color = TextTertiary
-            )
+            // Smooth Status Text Gliding Crossfade
+            AnimatedContent(
+                targetState = statusText,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                        slideInVertically(animationSpec = tween(220)) { it / 3 })
+                        .togetherWith(
+                            fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing)) +
+                            slideOutVertically(animationSpec = tween(150)) { -it / 3 }
+                        )
+                },
+                label = "StatusTextTransition"
+            ) { text ->
+                Text(
+                    text = text,
+                    fontSize = 9.5.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp,
+                    color = TextTertiary
+                )
+            }
         }
 
         // Skip prompt at bottom
@@ -206,7 +292,10 @@ private fun DrawScope.drawMonoLuxuryEmblem(
     radarAngle: Float,
     photonAngle: Float,
     auraAlpha: Float,
-    wavePulse: Float
+    wavePulse: Float,
+    wireframeProgress: Float,
+    centerpieceScale: Float,
+    centerpieceAlpha: Float
 ) {
     val center = Offset(size.width / 2f, size.height / 2f)
     val maxRadius = size.width / 2f
@@ -241,9 +330,9 @@ private fun DrawScope.drawMonoLuxuryEmblem(
     drawRoundRect(
         brush = Brush.linearGradient(
             colors = listOf(
-                Color.White.copy(alpha = 0.55f),
-                Color.White.copy(alpha = 0.10f),
-                Color.White.copy(alpha = 0.40f)
+                Color.White.copy(alpha = 0.60f * wireframeProgress),
+                Color.White.copy(alpha = 0.10f * wireframeProgress),
+                Color.White.copy(alpha = 0.45f * wireframeProgress)
             ),
             start = squircleTopLeft,
             end = squircleTopLeft + Offset(squircleSize, squircleSize)
@@ -257,7 +346,7 @@ private fun DrawScope.drawMonoLuxuryEmblem(
     // 3. Precision Radar Telemetry Ring
     val ringRadius = maxRadius * 0.65f
     drawCircle(
-        color = Color.White.copy(alpha = 0.15f),
+        color = Color.White.copy(alpha = 0.15f * wireframeProgress),
         radius = ringRadius,
         center = center,
         style = Stroke(width = 1f)
@@ -268,11 +357,11 @@ private fun DrawScope.drawMonoLuxuryEmblem(
     val startAngle = radarAngle
     drawArc(
         brush = Brush.sweepGradient(
-            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.7f)),
+            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.7f * wireframeProgress)),
             center = center
         ),
         startAngle = startAngle,
-        sweepAngle = 110f,
+        sweepAngle = 110f * wireframeProgress,
         useCenter = false,
         topLeft = Offset(center.x - ringRadius, center.y - ringRadius),
         size = Size(ringRadius * 2f, ringRadius * 2f),
@@ -294,7 +383,7 @@ private fun DrawScope.drawMonoLuxuryEmblem(
             center.y + (sin(angle) * ringRadius).toFloat()
         )
         drawLine(
-            color = if (isMajor) Color.White.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.25f),
+            color = if (isMajor) Color.White.copy(alpha = 0.8f * wireframeProgress) else Color.White.copy(alpha = 0.25f * wireframeProgress),
             start = p1,
             end = p2,
             strokeWidth = if (isMajor) 1.8f else 1f
@@ -313,19 +402,19 @@ private fun DrawScope.drawMonoLuxuryEmblem(
     )
 
     drawCircle(
-        color = Color.White,
+        color = Color.White.copy(alpha = wireframeProgress),
         radius = 3.5f,
         center = photonPos1
     )
     drawCircle(
-        color = Color.White.copy(alpha = 0.6f),
+        color = Color.White.copy(alpha = 0.6f * wireframeProgress),
         radius = 2.5f,
         center = photonPos2
     )
 
     // 5. Broadcast Radio Pulse Waves (Emanating outwards)
     val waveRadius = ringRadius * 0.35f + (ringRadius * 0.45f * wavePulse)
-    val waveAlpha = (1f - wavePulse).coerceIn(0f, 1f) * 0.6f
+    val waveAlpha = (1f - wavePulse).coerceIn(0f, 1f) * 0.6f * wireframeProgress
     drawCircle(
         color = Color.White.copy(alpha = waveAlpha),
         radius = waveRadius,
@@ -333,8 +422,7 @@ private fun DrawScope.drawMonoLuxuryEmblem(
         style = Stroke(width = 1.2f)
     )
 
-    // 6. Sculpted Phone Handset Silhouette & 2NR Monogram Core
-    // Handset receiver vector path
+    // 6. Sculpted Phone Handset Silhouette & Centerpiece with Elastic Spring Scaling
     val scale = maxRadius / 140f
     val path = Path().apply {
         // Scaled phone receiver curve
@@ -392,34 +480,40 @@ private fun DrawScope.drawMonoLuxuryEmblem(
         addPath(path, handsetOffset)
     }
 
-    // Draw Handset
-    drawPath(
-        path = centeredPath,
-        color = Color.Black
-    )
-    drawPath(
-        path = centeredPath,
-        color = Color.White,
-        style = Stroke(width = 3.5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-    )
-
-    // Inner Platinum Accent Line
     val accentPath = Path().apply {
         moveTo(center.x - 18f * scale, center.y - 20f * scale)
         lineTo(center.x + 2f * scale, center.y + 8f * scale)
         moveTo(center.x + 36f * scale, center.y + 45f * scale)
         lineTo(center.x + 58f * scale, center.y + 60f * scale)
     }
-    drawPath(
-        path = accentPath,
-        color = Color.White.copy(alpha = 0.75f),
-        style = Stroke(width = 2f, cap = StrokeCap.Round)
-    )
 
-    // 7. Core Status Beacon Dot
-    drawCircle(
-        color = Color.White,
-        radius = 4f,
-        center = center
-    )
+    // Transform centerpiece with elastic scale and alpha
+    withTransform({
+        scale(centerpieceScale, centerpieceScale, center)
+    }) {
+        // Draw Handset
+        drawPath(
+            path = centeredPath,
+            color = Color.Black.copy(alpha = centerpieceAlpha)
+        )
+        drawPath(
+            path = centeredPath,
+            color = Color.White.copy(alpha = centerpieceAlpha),
+            style = Stroke(width = 3.5f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+
+        // Inner Platinum Accent Line
+        drawPath(
+            path = accentPath,
+            color = Color.White.copy(alpha = 0.75f * centerpieceAlpha),
+            style = Stroke(width = 2f, cap = StrokeCap.Round)
+        )
+
+        // 7. Core Status Beacon Dot
+        drawCircle(
+            color = Color.White.copy(alpha = centerpieceAlpha),
+            radius = 4f,
+            center = center
+        )
+    }
 }

@@ -1,6 +1,9 @@
 package com.softphone.studio.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.softphone.studio.model.*
 import com.softphone.studio.network.NrApiClient
@@ -12,14 +15,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class SoftphoneViewModel : ViewModel() {
+class SoftphoneViewModel(application: Application) : AndroidViewModel(application) {
 
-    // 2NR Cloud Account State
-    val authToken = MutableStateFlow<String?>(null)
-    val userEmail = MutableStateFlow<String?>(null)
+    private val prefs: SharedPreferences = application.getSharedPreferences("phantomline_prefs", Context.MODE_PRIVATE)
+
+    // PhantomLine Cloud Account State
+    val authToken = MutableStateFlow<String?>(prefs.getString("auth_token", null))
+    val userEmail = MutableStateFlow<String?>(prefs.getString("user_email", null))
     val isAuthLoading = MutableStateFlow(false)
     val authError = MutableStateFlow<String?>(null)
     val authSuccessMessage = MutableStateFlow<String?>(null)
+
+    init {
+        val savedToken = prefs.getString("auth_token", null)
+        if (!savedToken.isNullOrBlank()) {
+            fetchUserNumbers()
+            fetchSms()
+        }
+    }
 
     // Virtual Numbers State
     private val _numbers = MutableStateFlow<List<PhoneNumberItem>>(emptyList())
@@ -69,6 +82,10 @@ class SoftphoneViewModel : ViewModel() {
                 onSuccess = { token ->
                     authToken.value = token
                     userEmail.value = email
+                    prefs.edit()
+                        .putString("auth_token", token)
+                        .putString("user_email", email)
+                        .apply()
                     isAuthLoading.value = false
                     authSuccessMessage.value = "Connected to PhantomLine Cloud!"
                     fetchUserNumbers()
@@ -110,6 +127,10 @@ class SoftphoneViewModel : ViewModel() {
         authSuccessMessage.value = null
         _numbers.value = emptyList()
         _messages.value = emptyList()
+        prefs.edit()
+            .remove("auth_token")
+            .remove("user_email")
+            .apply()
     }
 
     fun fetchUserNumbers() {

@@ -43,18 +43,18 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.3
-          name: "PhantomLine Luxury OLED Black v1.0.3"
+          tag_name: v1.0.4
+          name: "PhantomLine Luxury OLED Black v1.0.4"
           body: |
-            ### PhantomLine - Luxury OLED Black Edition v1.0.3
+            ### PhantomLine - Luxury OLED Black Edition v1.0.4
             Built with Jetpack Compose & Gradle on GitHub Actions.
-            - Brand Rebrand to PhantomLine (Developer: trexhausted on Discord)
-            - Mono Luxury starting animation on app launch with rotating telemetry and pulse waves
-            - First-time startup Login / Register screen automatically pops up when unauthenticated
-            - Removed all mock/fake items: clean empty states for Numbers, Messages, and Voicemail
-            - Smooth spring animations across dialer keypad, tab transitions (AnimatedContent), and modal dialogs
-            - Direct 2NR Cloud session authentication and real Polish SMS gateway integration
-            - Luxury OLED Pitch Black (#000000) theme with zero emojis
+            - New Official App Launcher Icons rendered directly from the high-res Mono Luxury vector SVG
+            - Persistent Authentication: saved in SharedPreferences so session persists across app restarts
+            - Web-style Intro Animation: wireframe path drawing and elastic spring handset centerpiece reveal
+            - Butter-smooth continuous loading bar interpolation and gliding status telemetry transitions
+            - Rebrand to PhantomLine (Developer: trexhausted on Discord)
+            - Direct Polish 2NR VoIP and SMS Gateway integration
+            - Pitch Black (#000000) OLED theme with zero emojis
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
