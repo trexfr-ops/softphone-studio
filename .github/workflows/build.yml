@@ -40,16 +40,17 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.6
-          name: "PhantomLine Luxury OLED Black v1.0.6"
+          tag_name: v1.0.7
+          name: "PhantomLine Luxury OLED Black v1.0.7"
           body: |
-            ### PhantomLine - Luxury OLED Black Edition v1.0.6
+            ### PhantomLine - Luxury OLED Black Edition v1.0.7
             Built with Jetpack Compose & Gradle on GitHub Actions.
-            - Web-Identical Anime.js & SVG Hardware-Accelerated Startup Animation with full bloom filters (#neonGlow, #softGlow)
-            - 36 radial pulsating spectrum rays, rotating reticle with cardinal ticks, orbiting photons, and elastic handset spring pop
-            - Complete OLED Black UI refinement with pure branding consistency across all screens
-            - Phase 1-4 Full VoIP Telecom Suite: Warsaw Gateway, OTP one-tap badge, radial lease gauge, dynamic sinusoidal reactive visualizer, and directional paging
-            - Rebranded to PhantomLine (Developer: trexhausted on Discord)
+            - 100% Genuine Polish (+48) Carrier Integration: Eliminated all mock numbers, mock regions, and synthetic reservations
+            - Real-World Line Validity Extension: Direct integration with 2NR carrier switch (sms/extendNumberValidityMessage)
+            - Recipient Virtual Line Attribution: Inbound SMS and voicemails explicitly tag the destination line (+48 459 193 733 / Line Name)
+            - Native Android Notifications: High-priority telecom alerts with Android 13+ permission guards and initial notification storm deduplication
+            - Strict Schema & Date Handling: ISO-8601 UTC timestamp parsing with dynamic lease countdown
+            - Pre-filled credentials (rolledrick581@gmail.com) for instantaneous one-tap gateway authentication
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

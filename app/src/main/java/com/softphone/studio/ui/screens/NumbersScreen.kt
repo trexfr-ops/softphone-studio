@@ -15,11 +15,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -140,6 +141,7 @@ fun NumbersScreen(
     val haptic = LocalHapticFeedback.current
     val shimmerBrush = rememberShimmerBrush()
     var showAddModal by remember { mutableStateOf(false) }
+    var snackbarMessage by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         containerColor = OledBlack,
@@ -159,7 +161,7 @@ fun NumbersScreen(
                         color = TextPrimary
                     )
                     Text(
-                        text = if (authToken != null) "PhantomLine Warsaw Pool • Active" else "PhantomLine Virtual Fleet",
+                        text = if (authToken != null) "PhantomLine Warsaw Pool • Active" else "Authentication Required",
                         fontSize = 11.sp,
                         color = if (authToken != null) ActiveGreen else TextSecondary
                     )
@@ -227,8 +229,8 @@ fun NumbersScreen(
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Text("PhantomLine Cloud Active", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                    Text(userEmail ?: "Logged in", fontSize = 11.sp, color = TextSecondary)
+                                    Text("PhantomLine Warsaw Cloud Active", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    Text(userEmail ?: "Authenticated", fontSize = 11.sp, color = TextSecondary)
                                 }
                             }
                             TextButton(onClick = {
@@ -265,8 +267,8 @@ fun NumbersScreen(
                             }
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("PhantomLine Account", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                Text("Sign in or register for live Polish numbers & SMS // Dev: trexhausted", fontSize = 11.sp, color = TextSecondary)
+                                Text("PhantomLine Account Required", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                Text("Sign in to access and manage live Polish virtual numbers & SMS", fontSize = 11.sp, color = TextSecondary)
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             TactileButton(
@@ -274,6 +276,29 @@ fun NumbersScreen(
                                 onClick = onOpenAuth,
                                 isPrimary = true
                             )
+                        }
+                    }
+                }
+            }
+
+            // Snackbar feedback banner if renewal was triggered
+            snackbarMessage?.let { msg ->
+                item {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = OledSurfaceElevated,
+                        border = BorderStroke(1.dp, OledBorderMedium)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(msg, fontSize = 12.sp, color = TextPrimary, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { snackbarMessage = null }) {
+                                Text("Dismiss", fontSize = 11.sp, color = TextSecondary)
+                            }
                         }
                     }
                 }
@@ -319,9 +344,9 @@ fun NumbersScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = if (authToken != null)
-                                    "Your PhantomLine pool has no active lines yet. Tap below to reserve a Polish line."
+                                    "Your PhantomLine Warsaw pool has no active lines yet. Tap below to reserve a Polish line."
                                 else
-                                    "Sign in to your account or provision a Polish (+48) number.",
+                                    "Sign into your PhantomLine account to load your active lines.",
                                 fontSize = 11.sp,
                                 color = TextSecondary,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -336,6 +361,7 @@ fun NumbersScreen(
                         onCopy = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             clipboardManager.setText(AnnotatedString(item.number))
+                            snackbarMessage = "Copied ${item.number} to clipboard"
                         },
                         onSms = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -347,7 +373,9 @@ fun NumbersScreen(
                         },
                         onRenew = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            viewModel.renewNumber(item.id)
+                            viewModel.renewNumber(item.id) { success, msg ->
+                                snackbarMessage = msg
+                            }
                         }
                     )
                 }
@@ -371,7 +399,7 @@ fun NumbersScreen(
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Reserve New Virtual Number", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("Provision New Virtual Number", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
@@ -385,10 +413,11 @@ fun NumbersScreen(
                 AddNumberSheetContent(
                     viewModel = viewModel,
                     shimmerBrush = shimmerBrush,
-                    onConfirm = { number, tag, carrier ->
-                        viewModel.addVirtualNumber(number, tag, carrier)
+                    onOpenAuth = {
                         showAddModal = false
-                    }
+                        onOpenAuth()
+                    },
+                    onDismiss = { showAddModal = false }
                 )
             }
         }
@@ -403,7 +432,7 @@ fun NumberCard(
     onCall: () -> Unit,
     onRenew: () -> Unit
 ) {
-    val leaseProgress = (item.daysRemaining.toFloat() / 30f).coerceIn(0f, 1f)
+    val leaseProgress = item.progressPercentage
     val animatedProgress by animateFloatAsState(
         targetValue = leaseProgress,
         animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
@@ -417,35 +446,31 @@ fun NumberCard(
         border = BorderStroke(1.dp, OledBorderSubtle)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header Tag & Active Lease Circular Gauge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .background(OledSurfaceElevated, RoundedCornerShape(6.dp))
-                        .border(1.dp, OledBorderSubtle, RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
+                Column {
                     Text(
-                        text = item.countryTag,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        text = item.number,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
                         color = TextPrimary
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = item.carrierName,
+                        text = if (item.expirationDateStr.isNotBlank())
+                            "${item.carrierName} • Expires: ${item.expirationDateStr}"
+                        else
+                            "${item.carrierName} • ${item.daysRemaining}d validity",
                         fontSize = 11.sp,
                         color = TextSecondary
                     )
                 }
 
-                // Precision Circular Lease Countdown Gauge
+                // Precision Circular Lease Countdown Gauge with Renew trigger
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -460,53 +485,35 @@ fun NumberCard(
                             val strokeWidth = 2.5.dp.toPx()
                             // Track
                             drawArc(
-                                color = Color(0x2BFFFFFF),
+                                color = OledBorderSubtle,
                                 startAngle = -90f,
                                 sweepAngle = 360f,
                                 useCenter = false,
                                 style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                             )
-                            // Progress Arc
+                            // Indicator
                             drawArc(
-                                color = if (item.daysRemaining <= 3) DangerRed else ActiveGreen,
+                                color = if (item.daysRemaining <= 1) DangerRed else ActiveGreen,
                                 startAngle = -90f,
                                 sweepAngle = 360f * animatedProgress,
                                 useCenter = false,
                                 style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                             )
                         }
-                        Text(
-                            text = "${item.daysRemaining}",
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
-                            color = TextPrimary
-                        )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "days left",
+                        text = "${item.daysRemaining}d",
                         fontSize = 11.sp,
-                        color = TextSecondary
+                        fontWeight = FontWeight.Bold,
+                        color = if (item.daysRemaining <= 1) DangerRed else TextPrimary
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Phone Number Text (Monospace & prominent)
-            Text(
-                text = item.number,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                fontFamily = FontFamily.Monospace,
-                color = TextPrimary,
-                letterSpacing = 1.sp
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Quick Actions: Copy, SMS, Call
+            // Action row: Copy, SMS, Call, Extend
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -516,10 +523,10 @@ fun NumberCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, OledBorderSubtle),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = OledBlack, contentColor = TextSecondary),
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Share, contentDescription = "Copy", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Copy", fontSize = 11.sp)
                 }
@@ -529,20 +536,38 @@ fun NumberCard(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, OledBorderSubtle),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = OledBlack, contentColor = TextSecondary),
+                    contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     Icon(Icons.Default.Email, contentDescription = "SMS", modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("SMS", fontSize = 11.sp)
                 }
 
-                TactileButton(
-                    text = "Call",
+                OutlinedButton(
                     onClick = onCall,
-                    isPrimary = true,
-                    modifier = Modifier.weight(1f)
-                )
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, OledBorderSubtle),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = OledBlack, contentColor = TextSecondary),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.Phone, contentDescription = "Call", modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Call", fontSize = 11.sp)
+                }
+
+                Button(
+                    onClick = onRenew,
+                    modifier = Modifier.weight(1.2f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = OledSurfaceElevated, contentColor = TextPrimary),
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Extend", modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Extend", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -552,19 +577,19 @@ fun NumberCard(
 fun AddNumberSheetContent(
     viewModel: SoftphoneViewModel,
     shimmerBrush: Brush,
-    onConfirm: (number: String, tag: String, carrier: String) -> Unit
+    onOpenAuth: () -> Unit,
+    onDismiss: () -> Unit
 ) {
-    var selectedTag by remember { mutableStateOf("PL") }
-    var carrierName by remember { mutableStateOf("PhantomLine Cloud") }
-    var previewNumber by remember { mutableStateOf("+48 732 891 042") }
     val authToken by viewModel.authToken.collectAsState()
     val pendingNumber by viewModel.pendingRandomNumber.collectAsState()
     val isLoading by viewModel.isNumberLoading.collectAsState()
     val haptic = LocalHapticFeedback.current
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var isSuccess by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pendingNumber) {
-        pendingNumber?.let {
-            previewNumber = it.first
+    LaunchedEffect(authToken) {
+        if (authToken != null && pendingNumber == null) {
+            viewModel.fetchRandomNumber()
         }
     }
 
@@ -575,99 +600,138 @@ fun AddNumberSheetContent(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            text = "Get a New Virtual Number",
+            text = "Provision Virtual Polish Line",
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary
         )
-        Text(
-            text = "Select region to provision a PhantomLine Polish or global line:",
-            fontSize = 12.sp,
-            color = TextSecondary
-        )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val regions = listOf(
-                Triple("PL", "+48", "PhantomLine Poland"),
-                Triple("UK", "+44", "Vodafone UK"),
-                Triple("US", "+1", "T-Mobile US")
-            )
-            regions.forEach { (tag, code, carrier) ->
-                FilterChip(
-                    selected = selectedTag == tag,
-                    onClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        selectedTag = tag
-                        carrierName = carrier
-                        if (tag == "PL" && authToken != null) {
-                            viewModel.fetchRandomNumber()
-                        } else {
-                            previewNumber = "$code 7${(100..999).random()} ${(100..999).random()}"
-                        }
-                    },
-                    label = { Text("[$tag] $carrier") },
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = OledSurfaceElevated,
-                        labelColor = TextSecondary,
-                        selectedContainerColor = TextPrimary,
-                        selectedLabelColor = OledBlack
-                    )
-                )
-            }
-        }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = OledBlack,
-            border = BorderStroke(1.dp, OledBorderSubtle)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        if (authToken == null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = OledBlack,
+                border = BorderStroke(1.dp, OledBorderMedium)
             ) {
-                Text("Allocated Line Preview", fontSize = 11.sp, color = TextSecondary)
-                Spacer(modifier = Modifier.height(8.dp))
-                if (isLoading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .height(28.dp)
-                            .background(shimmerBrush, RoundedCornerShape(6.dp))
-                    )
-                } else {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(28.dp))
                     Text(
-                        text = previewNumber,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace,
+                        text = "Authentication Required",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
+                    Text(
+                        text = "To reserve and activate genuine Polish (+48) carrier mobile lines with SMS reception, please sign in or register your PhantomLine account.",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TactileButton(
+                        text = "Sign In to PhantomLine",
+                        onClick = onOpenAuth,
+                        isPrimary = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
-                Spacer(modifier = Modifier.height(6.dp))
+            }
+        } else {
+            Text(
+                text = "Live Polish (+48) Warsaw mobile gateway pool:",
+                fontSize = 12.sp,
+                color = TextSecondary
+            )
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = OledBlack,
+                border = BorderStroke(1.dp, OledBorderSubtle)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("WARSAW POOL ALLOCATION PREVIEW", fontSize = 11.sp, color = TextSecondary, letterSpacing = 1.sp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    if (isLoading || pendingNumber == null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.7f)
+                                .height(32.dp)
+                                .background(shimmerBrush, RoundedCornerShape(6.dp))
+                        )
+                    } else {
+                        Text(
+                            text = pendingNumber?.first ?: "",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontFamily = FontFamily.Monospace,
+                            color = TextPrimary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Physical SIM / Carrier Switch Bounded",
+                        fontSize = 11.sp,
+                        color = ActiveGreen,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            statusMessage?.let { msg ->
                 Text(
-                    text = "Direct Provisioned • Immediate Activation",
-                    fontSize = 11.sp,
-                    color = ActiveGreen,
-                    fontWeight = FontWeight.SemiBold
+                    text = msg,
+                    fontSize = 12.sp,
+                    color = if (isSuccess) ActiveGreen else DangerRed,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.fetchRandomNumber()
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, OledBorderMedium),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = OledSurface,
+                        contentColor = TextPrimary
+                    )
+                ) {
+                    Text("Reroll Line", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                TactileButton(
+                    text = if (isLoading) "Provisioning..." else "Reserve Line",
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        viewModel.reservePendingNumber("PhantomLine Line") { success, msg ->
+                            isSuccess = success
+                            statusMessage = msg
+                            if (success) {
+                                onDismiss()
+                            }
+                        }
+                    },
+                    isPrimary = true,
+                    enabled = !isLoading && pendingNumber != null,
+                    modifier = Modifier.weight(1.5f)
                 )
             }
         }
-
-        TactileButton(
-            text = "Reserve & Activate Line",
-            onClick = {
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                if (authToken != null && pendingNumber != null) {
-                    viewModel.reservePendingNumber("PhantomLine Line") {
-                        onConfirm(previewNumber, selectedTag, carrierName)
-                    }
-                } else {
-                    onConfirm(previewNumber, selectedTag, carrierName)
-                }
-            },
-            isPrimary = true,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }

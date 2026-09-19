@@ -167,6 +167,15 @@ fun VoicemailScreen(viewModel: SoftphoneViewModel) {
                                             fontWeight = FontWeight.Bold,
                                             color = TextPrimary
                                         )
+                                        if (item.recipientLine.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = item.recipientLine,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = ActiveGreen
+                                            )
+                                        }
                                     }
 
                                     if (item.isUnread) {

@@ -1,8 +1,13 @@
 package com.softphone.studio
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -18,11 +23,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import com.softphone.studio.theme.*
 import com.softphone.studio.ui.screens.*
+import com.softphone.studio.util.NotificationHelper
 import com.softphone.studio.viewmodel.SoftphoneViewModel
 
 enum class NavigationItem(val route: String, val title: String, val icon: ImageVector) {
@@ -38,6 +46,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        NotificationHelper.initChannel(this)
         setContent {
             SoftphoneStudioTheme {
                 AppRoot(viewModel)
@@ -48,6 +57,20 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppRoot(viewModel: SoftphoneViewModel) {
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { _ -> }
+    )
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     var isSplashVisible by remember { mutableStateOf(true) }
     var hasSkippedInitialAuth by remember { mutableStateOf(false) }
     val authToken by viewModel.authToken.collectAsState()

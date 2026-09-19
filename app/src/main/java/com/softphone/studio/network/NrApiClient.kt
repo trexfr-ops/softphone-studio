@@ -11,13 +11,23 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
+import kotlin.math.max
 
+/**
+ * Result container for raw HTTP responses.
+ */
 data class HttpResult(
     val statusCode: Int,
     val body: String,
     val cookies: List<String>
 )
 
+/**
+ * Client for interfacing directly with the live 2NR virtual telecom cloud endpoints.
+ */
 object NrApiClient {
     private const val BASE_URL = "https://api.2nr.xyz"
     private const val APP_VERSION = "52"
@@ -136,6 +146,11 @@ object NrApiClient {
                 JSONObject(httpResult.body).optJSONArray("result") ?: JSONArray()
             }
             val list = mutableListOf<PhoneNumberItem>()
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val nowMillis = System.currentTimeMillis()
+
             for (i in 0 until jsonArray.length()) {
                 val item = jsonArray.getJSONObject(i)
                 val id = item.optString("number_id", item.optString("id", i.toString()))
@@ -147,9 +162,38 @@ object NrApiClient {
                 } else {
                     "+48 $rawNumber"
                 }
-                val name = item.optString("name", "2NR Line ${i + 1}")
-                val daysLeft = item.optInt("days_to_expire", 3)
-                list.add(PhoneNumberItem(id, formatted, "PL", name, daysLeft))
+                val name = item.optString("name", "PhantomLine ${i + 1}")
+                val reservationTo = item.optString("reservation_to", "")
+
+                var calculatedDays = 3
+                var formattedExpStr = ""
+                if (reservationTo.isNotBlank()) {
+                    try {
+                        val cleanDateStr = reservationTo.substringBefore(".")
+                        val expDate = dateFormat.parse(cleanDateStr)
+                        if (expDate != null) {
+                            val diffMillis = expDate.time - nowMillis
+                            calculatedDays = max(0, (diffMillis / (1000L * 60L * 60L * 24L)).toInt())
+                            val displayFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
+                            formattedExpStr = displayFormat.format(expDate)
+                        }
+                    } catch (_: Exception) {
+                        calculatedDays = 3
+                    }
+                }
+
+                list.add(
+                    PhoneNumberItem(
+                        id = id,
+                        number = formatted,
+                        countryTag = "PL",
+                        carrierName = "PhantomLine Warsaw [2NR]",
+                        daysRemaining = calculatedDays,
+                        totalDays = 3,
+                        isActive = calculatedDays > 0,
+                        expirationDateStr = formattedExpStr
+                    )
+                )
             }
             Result.success(list)
         } catch (e: Exception) {
@@ -181,7 +225,7 @@ object NrApiClient {
                 }
                 Result.success(Pair(formatted, numberId))
             } else {
-                Result.failure(Exception("No numbers currently available from 2NR pool."))
+                Result.failure(Exception("No numbers currently available from carrier pool."))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -195,8 +239,8 @@ object NrApiClient {
                 put("query", JSONObject().apply {
                     put("number_id", numberId)
                     put("name", name)
-                    put("color", "default")
-                    put("marketing", false)
+                    put("color", "#E63147")
+                    put("marketing", true)
                 })
             }
             val httpResult = postJson("numbers/reserveNumber", payload, token)
@@ -204,7 +248,27 @@ object NrApiClient {
             if (json.optBoolean("success", true)) {
                 Result.success(true)
             } else {
-                Result.failure(Exception("Failed to reserve number."))
+                Result.failure(Exception(json.optString("error", "Failed to reserve number.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun extendNumberValidity(token: String, numberId: Int): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("id", 405)
+                put("query", JSONObject().apply {
+                    put("number_id", numberId)
+                })
+            }
+            val httpResult = postJson("sms/extendNumberValidityMessage", payload, token)
+            val json = JSONObject(httpResult.body)
+            if (json.optBoolean("success", false)) {
+                Result.success(true)
+            } else {
+                Result.failure(Exception(json.optString("error", "Failed to extend validity on carrier.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -235,6 +299,11 @@ object NrApiClient {
                     timeRaw
                 }
                 val isUnread = item.optInt("status", 0) == 0
+                val numberId = item.optInt("number_id", 0)
+                val numObj = item.optJSONObject("number")
+                val lineName = numObj?.optString("name") ?: ""
+                val recipientLine = if (lineName.isNotBlank()) "To: $lineName" else if (numberId > 0) "To: Line #$numberId" else ""
+
                 threads.add(
                     MessageThread(
                         id = id,
@@ -242,7 +311,9 @@ object NrApiClient {
                         phoneNumber = sender,
                         lastMessage = text,
                         timestamp = formattedTime,
-                        isUnread = isUnread
+                        isUnread = isUnread,
+                        recipientLine = recipientLine,
+                        numberId = if (numberId > 0) numberId else null
                     )
                 )
             }

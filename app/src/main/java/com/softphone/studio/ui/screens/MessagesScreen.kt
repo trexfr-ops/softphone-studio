@@ -331,6 +331,15 @@ fun MessagesScreen(
                                             color = TextTertiary
                                         )
                                     }
+                                    if (thread.recipientLine.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = thread.recipientLine,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = ActiveGreen.copy(alpha = 0.85f)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
                                         text = thread.lastMessage,
@@ -420,7 +429,10 @@ fun MessagesScreen(
                                 color = TextPrimary
                             )
                             Text(
-                                text = "${thread.phoneNumber} • ${thread.timestamp}",
+                                text = if (thread.recipientLine.isNotBlank())
+                                    "${thread.phoneNumber} • ${thread.recipientLine} • ${thread.timestamp}"
+                                else
+                                    "${thread.phoneNumber} • ${thread.timestamp}",
                                 fontSize = 11.sp,
                                 color = TextSecondary,
                                 fontFamily = FontFamily.Monospace

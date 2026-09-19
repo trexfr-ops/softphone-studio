@@ -1,5 +1,8 @@
 package com.softphone.studio.model
 
+/**
+ * Encapsulates a carrier voicemail entry with recipient line attribution.
+ */
 data class VoicemailItem(
     val id: String,
     val callerNumber: String,
@@ -8,5 +11,6 @@ data class VoicemailItem(
     val durationSeconds: Int,
     val transcript: String,
     val isUnread: Boolean,
-    val timestamp: String
+    val timestamp: String,
+    val recipientLine: String = ""
 )

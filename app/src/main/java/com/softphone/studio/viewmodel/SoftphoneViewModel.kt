@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.softphone.studio.model.*
 import com.softphone.studio.network.NrApiClient
+import com.softphone.studio.util.NotificationHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Flagship ViewModel orchestrating VoIP state, live 2NR virtual carrier numbers,
+ * real-time SMS streams, and native system notifications.
+ */
 class SoftphoneViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs: SharedPreferences = application.getSharedPreferences("phantomline_prefs", Context.MODE_PRIVATE)
@@ -26,7 +31,12 @@ class SoftphoneViewModel(application: Application) : AndroidViewModel(applicatio
     val authError = MutableStateFlow<String?>(null)
     val authSuccessMessage = MutableStateFlow<String?>(null)
 
+    // Notification deduplication set to avoid notification storms on initial load
+    private val notifiedMessageIds = mutableSetOf<String>()
+    private var isInitialSmsLoad = true
+
     init {
+        NotificationHelper.initChannel(application)
         val savedToken = prefs.getString("auth_token", null)
         if (!savedToken.isNullOrBlank()) {
             fetchUserNumbers()
@@ -34,7 +44,7 @@ class SoftphoneViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    // Virtual Numbers State
+    // Virtual Numbers State (100% Genuine Polish Carrier Numbers)
     private val _numbers = MutableStateFlow<List<PhoneNumberItem>>(emptyList())
     val numbers: StateFlow<List<PhoneNumberItem>> = _numbers.asStateFlow()
 
@@ -138,6 +148,14 @@ class SoftphoneViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             NrApiClient.getUserNumbers(token).onSuccess { list ->
                 _numbers.value = list
+                // Check if any number expires within 1 day and warn user
+                list.firstOrNull { it.daysRemaining <= 1 && it.isActive }?.let { expiringItem ->
+                    NotificationHelper.showLeaseExpiryAlert(
+                        context = getApplication(),
+                        number = expiringItem.number,
+                        daysLeft = expiringItem.daysRemaining
+                    )
+                }
             }
         }
     }
@@ -158,9 +176,15 @@ class SoftphoneViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun reservePendingNumber(name: String, onComplete: () -> Unit) {
-        val token = authToken.value ?: return
-        val pair = pendingRandomNumber.value ?: return
+    fun reservePendingNumber(name: String, onResult: (Boolean, String) -> Unit) {
+        val token = authToken.value ?: run {
+            onResult(false, "Authentication required to reserve numbers.")
+            return
+        }
+        val pair = pendingRandomNumber.value ?: run {
+            onResult(false, "No pending number selected.")
+            return
+        }
         viewModelScope.launch {
             isNumberLoading.value = true
             NrApiClient.reserveNumber(token, pair.second, name).fold(
@@ -168,10 +192,36 @@ class SoftphoneViewModel(application: Application) : AndroidViewModel(applicatio
                     isNumberLoading.value = false
                     pendingRandomNumber.value = null
                     fetchUserNumbers()
-                    onComplete()
+                    onResult(true, "Number successfully reserved on Warsaw gateway!")
                 },
-                onFailure = {
+                onFailure = { err ->
                     isNumberLoading.value = false
+                    onResult(false, err.message ?: "Reservation failed.")
+                }
+            )
+        }
+    }
+
+    fun renewNumber(id: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        val token = authToken.value ?: run {
+            onResult(false, "Authentication required to renew line.")
+            return
+        }
+        val numberId = id.toIntOrNull() ?: run {
+            onResult(false, "Invalid number identifier.")
+            return
+        }
+        viewModelScope.launch {
+            isNumberLoading.value = true
+            NrApiClient.extendNumberValidity(token, numberId).fold(
+                onSuccess = {
+                    isNumberLoading.value = false
+                    fetchUserNumbers()
+                    onResult(true, "Validity extended successfully on carrier switch!")
+                },
+                onFailure = { err ->
+                    isNumberLoading.value = false
+                    onResult(false, err.message ?: "Carrier validity extension failed.")
                 }
             )
         }
@@ -182,6 +232,24 @@ class SoftphoneViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             NrApiClient.getSms(token).onSuccess { list ->
                 _messages.value = list
+
+                if (isInitialSmsLoad) {
+                    list.forEach { notifiedMessageIds.add(it.id) }
+                    isInitialSmsLoad = false
+                } else {
+                    for (msg in list) {
+                        if (msg.isUnread && !notifiedMessageIds.contains(msg.id)) {
+                            notifiedMessageIds.add(msg.id)
+                            NotificationHelper.showIncomingSms(
+                                context = getApplication(),
+                                sender = msg.title,
+                                message = msg.lastMessage,
+                                lineName = msg.recipientLine,
+                                notificationId = msg.id.hashCode()
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -254,22 +322,5 @@ class SoftphoneViewModel(application: Application) : AndroidViewModel(applicatio
     fun deleteVoicemail(id: String) {
         if (playingVoicemailId.value == id) pauseVoicemail()
         _voicemails.update { list -> list.filterNot { it.id == id } }
-    }
-
-    fun renewNumber(id: String) {
-        _numbers.update { list ->
-            list.map { if (it.id == id) it.copy(daysRemaining = 30) else it }
-        }
-    }
-
-    fun addVirtualNumber(number: String, tag: String, carrier: String) {
-        val newItem = PhoneNumberItem(
-            id = System.currentTimeMillis().toString(),
-            number = number,
-            countryTag = tag,
-            carrierName = carrier,
-            daysRemaining = 30
-        )
-        _numbers.update { listOf(newItem) + it }
     }
 }

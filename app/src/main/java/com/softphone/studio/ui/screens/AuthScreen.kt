@@ -37,8 +37,8 @@ fun AuthScreen(
     onClose: () -> Unit = onLoginSuccess
 ) {
     var authMode by remember { mutableStateOf("signin") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("rolledrick581@gmail.com") }
+    var password by remember { mutableStateOf("scorp1on1sop@A") }
     var isPasswordVisible by remember { mutableStateOf(false) }
 
     val isLoading by viewModel.isAuthLoading.collectAsState()
